@@ -1,1 +1,2 @@
-
+- Using Flask to print "Hello World".
+- Deploying it into Docker.
