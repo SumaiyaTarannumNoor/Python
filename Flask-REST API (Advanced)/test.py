@@ -18,8 +18,13 @@ print(response.json())
 response = requests.get(BASE + "art/16")
 print(response.json())
 
-response = requests.delete(BASE + "video/2")
+response = requests.delete(BASE + "art/1")
+print(response)
 print("Artwork deleted.")
 
-response = requests.get(BASE + "art/16")
+response = requests.get(BASE + "art/0")
 print(response.json())
+
+response = requests.get(BASE + "art/1")
+print(response.json())
+
