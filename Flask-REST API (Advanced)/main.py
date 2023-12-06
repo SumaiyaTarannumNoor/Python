@@ -52,12 +52,10 @@ class Art(Resource):
     
     @marshal_with(resource_fields)
     def delete(self, art_id):
-        args = art_put_args.parse_args()
-        result = ArtModel.query.filter_by(id=art_id).first()
+        result = ArtModel.query.filter_by(id=art_id).delete()
+        db.session.commit()
         if not result:
             abort(404, message="Artwork with this ID doesn't exists. Try another...")
-        db.session.delete()
-        db.session.commit()
         return '', 204
 
 
