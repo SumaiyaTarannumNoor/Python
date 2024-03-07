@@ -39,3 +39,32 @@ def trainee_delete(trainee_id):
         return jsonify({'error': 'Invalid request'})
     except Exception as e:
         return jsonify({'error': f"Request error: {str(e)}"})
+
+
+@app.route('/blogs', methods=['GET', 'POST'])
+def blog():
+    try:
+        if request.method == 'POST':
+            writer_name = request.form.get('writer_name')
+            topic = request.form.get('topic')
+            blog_headline = request.form.get('blog_headline')
+            blog_details = request.form.get('blog_details')
+           
+
+        # Check for required fields
+            if not ([writer_name, topic, blog_headline, blog_details]):
+                return jsonify({"message": "You must fill up these required fields."}), 400
+            
+            # Perform database operations
+            with connection.cursor() as cursor:
+                blog_create_sql = "INSERT INTO blogs  (writer_name, topic, blog_headline, blog_details) VALUES (%s, %s, %s, %s)"
+                cursor.execute(blog_create_sql, (writer_name, topic, blog_headline, blog_details))
+                connection.commit()
+
+            return jsonify({'success': 'Blog Creation successful'}), 200
+        
+        elif request.method == 'GET':
+            return jsonify({'message': 'GET request received'}), 200
+
+    except Exception as e:
+        return jsonify({'error': f"Request error: {str(e)}"}), 500
