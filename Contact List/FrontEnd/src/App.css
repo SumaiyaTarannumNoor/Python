@@ -46,6 +46,7 @@ td{
   background: aqua;
   font-family: "Poor Richard";
   font-size: 20px;
+  color: #1a1a1a;
 }
 
 button{
@@ -65,4 +66,43 @@ button{
 
 .read-the-docs {
   color: #888;
+}
+
+.field{
+  padding: 1rem;
+  background: #175cff;
+  align-items: center;
+}
+
+.container{
+  margin: 10px;
+  background: #175cff;
+}
+
+.label{
+  background: #175cff;
+  height: 20px;
+  width: 200px;
+  padding: 6px;
+  border-radius: 10px;
+  color: #ffffff;
+}
+
+.input{
+  background: #002d97;
+  height: 20px;
+  width: 200px;
+  padding: 6px;
+  border-radius: 10px;
+  color: #ffffff;
+}
+
+button:hover{
+  background: #002d97;
+  color: #ffffff;
+}
+
+.input:hover{
+  background: #ffffff;
+  color: #002d97;
 }

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import ContactList from './ContactList.jsx'
 import './App.css'
+import ContactForm from "./ContactForm.jsx";
 function App() {
   const [contacts, setContacts] = useState([{}])
 
   useEffect(() => {
-    //fetchContacts()
+    fetchContacts()
   }, []);
 
   const fetchContacts = async () => {
@@ -18,9 +19,10 @@ function App() {
   return(
   <>
   <ContactList contacts={contacts}/>
-  {/*<ContactForm/>*/}
+  <ContactForm/>
   </>
-  );
+
+  )
 }
 
 export default App
