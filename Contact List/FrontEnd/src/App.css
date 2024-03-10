@@ -26,6 +26,32 @@
     transform: rotate(360deg);
   }
 }
+body{
+  background: #535bf2;
+}
+
+div{
+  background: #ffffff;
+}
+
+th{
+  margin: 20px;
+  border: 10px blue solid;
+  width: 200px;
+}
+
+td{
+  margin: 6px;
+  border: 6px blue solid;
+  background: aqua;
+  font-family: "Poor Richard";
+  font-size: 20px;
+}
+
+button{
+  margin: 10px;
+}
+
 
 @media (prefers-reduced-motion: no-preference) {
   a:nth-of-type(2) .logo {
