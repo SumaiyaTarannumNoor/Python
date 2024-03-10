@@ -40,7 +40,20 @@ def update_contact(contact_id):
 
     db.session.commit()
 
-    return jsonify({"message": "Contact Updated."})
+    return jsonify({"message": "Contact Updated."}), 201
+
+
+@app.route('/delete_contact/<int:user_id>', methods=['DELETE'])
+def delete_contact(user_id):
+    contact = Contact.query.get(user_id)
+
+    if not contact:
+        return jsonify({"message": "User not found"}), 404
+
+    db.session.delete(contact)
+    db.session.commit()
+
+    return jsonify({"message": "Contact deleted!"}), 200
 
 if __name__ == '__main__':
     with app.app_context():
