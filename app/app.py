@@ -80,3 +80,16 @@ def create_blogs():
 
     except Exception as e:
         return jsonify({'error': f"Request error: {str(e)}"}), 500
+
+@app.route('/blog_delete/<int:blog_id>', methods=['GET','POST'])
+def blog_delete(blog_id):
+    try:
+        if request.method == 'POST'
+            cursor = connection.cursor()
+            event_delete_query = "DELETE FROM trainees  WHERE blog_id  = %s"
+            cursor.execute(event_delete_query, (blog_id))
+            connection.commit()
+            return jsonify({'success': 'Delete Success'})
+        return jsonify({'error': 'Invalid request'})
+    except Exception as e:
+        return jsonify({'error': f"Request error: {str(e)}"})
