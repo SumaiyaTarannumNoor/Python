@@ -42,23 +42,35 @@ def trainee_delete(trainee_id):
 
 
 @app.route('/blogs', methods=['GET', 'POST'])
-def blog():
+def get_blogs():
+        try:
+            with connection.cursor() as cursor:
+                blog_sql = "SELECT * FROM blogs"
+                cursor.execute(blog_sql)
+                blog_data = cursor.fetchall()
+                return render_template('blogs.html', blogs=blog_data)
+        except Exception as e:
+            return jsonify({'error': f"Request error: {str(e)}"})    
+
+
+@app.route('/blog_creation', methods=['GET', 'POST'])
+def create_blogs():
     try:
         if request.method == 'POST':
-            writer_name = request.form.get('writer_name')
+            writers_name = request.form.get('writers_name')
             topic = request.form.get('topic')
             blog_headline = request.form.get('blog_headline')
             blog_details = request.form.get('blog_details')
            
 
         # Check for required fields
-            if not ([writer_name, topic, blog_headline, blog_details]):
+            if not ([writers_name, topic, blog_headline, blog_details]):
                 return jsonify({"message": "You must fill up these required fields."}), 400
             
             # Perform database operations
             with connection.cursor() as cursor:
-                blog_create_sql = "INSERT INTO blogs  (writer_name, topic, blog_headline, blog_details) VALUES (%s, %s, %s, %s)"
-                cursor.execute(blog_create_sql, (writer_name, topic, blog_headline, blog_details))
+                blog_create_sql = "INSERT INTO blogs  (writers_name, topic, blog_headline, blog_details) VALUES (%s, %s, %s, %s)"
+                cursor.execute(blog_create_sql, (writers_name, topic, blog_headline, blog_details))
                 connection.commit()
 
             return jsonify({'success': 'Blog Creation successful'}), 200
