@@ -52,6 +52,17 @@ def get_blogs():
         except Exception as e:
             return jsonify({'error': f"Request error: {str(e)}"})    
 
+@app.route('/blogs_admin_panel', methods=['GET', 'POST'])
+def get_blogs_admin_panel():
+        try:
+            with connection.cursor() as cursor:
+                blog_sql = "SELECT * FROM blogs"
+                cursor.execute(blog_sql)
+                blog_data = cursor.fetchall()
+                return render_template('blogs_admin_panel.html', blogs=blog_data)
+        except Exception as e:
+            return jsonify({'error': f"Request error: {str(e)}"})   
+
 
 @app.route('/blog_creation', methods=['GET', 'POST'])
 def create_blogs():
