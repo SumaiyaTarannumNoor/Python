@@ -1,9 +1,12 @@
 import { useState } from 'react';
 
-const ContactForm = () => {
-    const [firstName, setFirstName] = useState("");
-    const [lastName, setLastName] = useState("");
-    const [email, setEmail] = useState(""); // Corrected variable name
+const ContactForm = ({existingContact = {}, updateCallback}) => {
+    const [firstName, setFirstName] = useState(existingContact.firstName||"");
+    const [lastName, setLastName] = useState(existingContact.lastName||"");
+    const [email, setEmail] = useState(existingContact.email||""); // Corrected variable name
+
+    const updating = Object.entries(existingContact).length !== 0
+
 
     const onSubmit = async (e) => {
         e.preventDefault();
@@ -14,9 +17,9 @@ const ContactForm = () => {
             email
         };
 
-        const url = "http://127.0.0.1:5000/create_contact"; // Corrected URL
+        const url = "http://127.0.0.1:5000/" + (updating ? `update_contact/${existingContact.id}`:"create_contact")
         const options = {
-            method: 'POST', 
+            method: updating ? "PATCH" : 'POST', 
             headers: {
                 "Content-Type": "application/json"
             },
@@ -24,7 +27,7 @@ const ContactForm = () => {
         };
 
         const response = await fetch(url, options)
-
+        
         if (response.status !== 201 && response.status !== 200) {
             const data = await response.json(); // Renamed variable to avoid conflict
             alert(data.message);
@@ -32,7 +35,7 @@ const ContactForm = () => {
                 window.location.reload();
             }, 2000);
         } else {
-            throw new Error('Invalid response from the server.');
+            updateCallback()
         }
     };
 
@@ -66,7 +69,7 @@ const ContactForm = () => {
                     className="input"
                     onChange={(e) => setEmail(e.target.value)} />
             </div>
-            <button type="submit">Create Contact</button>
+            <button type="submit">{updating ? "Update" : "Create New Contact"}</button>
            </div>
         </form>
     );

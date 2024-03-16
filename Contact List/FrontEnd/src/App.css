@@ -31,17 +31,18 @@ body{
 }
 
 div{
-  background: #ffffff;
+  background:#002d97;
+  color: #ffffff;
 }
 
 th{
-  margin: 20px;
+  margin: 10px;
   border: 10px blue solid;
   width: 200px;
 }
 
 td{
-  margin: 6px;
+  margin: 2px;
   border: 6px blue solid;
   background: aqua;
   font-family: "Poor Richard";
@@ -50,7 +51,7 @@ td{
 }
 
 button{
-  margin: 10px;
+  margin: 40px;
 }
 
 
@@ -75,7 +76,7 @@ button{
 }
 
 .container{
-  margin: 10px;
+  margin: 20px;
   background: #175cff;
 }
 
@@ -92,17 +93,47 @@ button{
   background: #002d97;
   height: 20px;
   width: 200px;
-  padding: 6px;
+  padding: 4px;
   border-radius: 10px;
   color: #ffffff;
+  cursor: pointer;
 }
 
 button:hover{
   background: #002d97;
   color: #ffffff;
+  cursor: pointer;
 }
 
 .input:hover{
   background: #ffffff;
   color: #002d97;
+  cursor: pointer;
+}
+
+.modal{
+  position:fixed;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(241, 239, 239, 0.4);
+}
+
+.modal-content{
+  margin: 10% auto;
+  padding: 20px;
+  width: 60%;
+  background-color: rgba(241, 239, 239, 0.4);
+  cursor: pointer;
+}
+
+.close{
+  color:#002d97;
+  float: right;
+  font-size: 60px;
+  font-weight: bold;
+  cursor: pointer;
 }
