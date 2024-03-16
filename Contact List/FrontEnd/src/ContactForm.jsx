@@ -10,26 +10,29 @@ const ContactForm = () => {
 
         const data = {
             firstName,
-            lastName, // Corrected variable name
+            lastName,
             email
         };
 
         const url = "http://127.0.0.1:5000/create_contact"; // Corrected URL
         const options = {
-            method: 'POST', // Corrected HTTP method
+            method: 'POST', 
             headers: {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify(data)
         };
 
-        const response = await fetch(url, options);
+        const response = await fetch(url, options)
 
         if (response.status !== 201 && response.status !== 200) {
-            const responseData = await response.json(); // Renamed variable to avoid conflict
-            alert(responseData.message);
+            const data = await response.json(); // Renamed variable to avoid conflict
+            alert(data.message);
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
         } else {
-            // Handle success case if needed
+            throw new Error('Invalid response from the server.');
         }
     };
 
