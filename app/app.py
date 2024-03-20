@@ -47,7 +47,7 @@ def registration():
                 languages.append('Bangla')
             if 'english' in request.form:
                 languages.append('English')
-            if 'other' in request.form:
+            if 'other_language' in request.form:
                 other_language = request.form.get('other_language')
                 if other_language:
                     languages.append(other_language)
