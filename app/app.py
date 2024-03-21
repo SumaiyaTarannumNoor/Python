@@ -1,14 +1,15 @@
-@app.route('/user_gallary', methods=['GET','POST'])
+@app.route('/user_gallery', methods=['GET','POST'])
 def get_user_gallary():
     try:
         with connection.cursor() as cursor:
             # SQL query to fetch data from the users table
-            users_gallary_sql = "SELECT * FROM ahm_gallary_partners LIMIT 6"
+            # users_gallary_sql = "SELECT * FROM ahm_gallary_partners LIMIT 6"
+            users_gallary_sql = "SELECT * FROM ahm_gallary_partners WHERE category = 'gallary' LIMIT 6"
             cursor.execute(users_gallary_sql)
             gallary_data = cursor.fetchall()
             
            
-            count_query = "SELECT COUNT(g_p_id) FROM ahm_gallary_partners"
+            count_query = "SELECT COUNT(g_p_id) FROM ahm_gallary_partners WHERE category = 'gallary'"
             cursor.execute(count_query)
             total_records = cursor.fetchone()
             count_value = total_records['COUNT(g_p_id)']
@@ -27,7 +28,7 @@ def get_user_gallary():
         return jsonify({'error': f"Request error: {str(e)}"})
     
 
-## GET NEXT 10 IMAGES
+# GET NEXT 10 IMAGES
 PER_PAGE = 6  # Number of items per page
 START_PAGE = 2  # Starting page number
 
@@ -42,11 +43,11 @@ def user_gallary_pagination():
 
         with connection.cursor() as cursor:
             # SQL query to fetch paginated data from the users table
-            users_gallary_sql = f"SELECT * FROM ahm_gallary_partners LIMIT %s OFFSET %s"
+            users_gallary_sql = f"SELECT * FROM ahm_gallary_partners WHERE category = 'gallary' LIMIT %s OFFSET %s"
             cursor.execute(users_gallary_sql, (PER_PAGE, offset))
             gallary_data = cursor.fetchall()
             
-            count_query = "SELECT COUNT(g_p_id) FROM ahm_gallary_partners"
+            count_query = "SELECT COUNT(g_p_id) FROM ahm_gallary_partners WHERE category = 'gallary'"
             cursor.execute(count_query)
             total_records = cursor.fetchone()
             count_value = total_records['COUNT(g_p_id)']
@@ -63,7 +64,6 @@ def user_gallary_pagination():
 
     except Exception as e:
         return jsonify({'error': f"Request error: {str(e)}"})
-
 
 @app.route('/registration', methods=['GET', 'POST'])
 def registration():
