@@ -121,6 +121,46 @@ def registration():
             # print(languages)
             # exit()
             language_proficiency = ', '.join(languages)
+            
+            done_trainings = []
+            if 'copywriting' in request.form:
+                done_trainings.append('Copywriting')
+            if 'digital_marketing' in request.form:
+                done_trainings.append('Digital Marketing')
+            if 'graphic_design' in request.form:
+                done_trainings.append('Graphic Design')  
+            if 'data_entry' in request.form:
+                done_trainings.append('Data Entry')    
+            if 'seo' in request.form:
+                done_trainings.append('SEO')    
+            if 'uxui' in request.form:
+                done_trainings.append('UX/UI Design') 
+            if 'other_done_training' in request.form:
+                other_done_training = request.form.get('other_done_training')
+                if other_done_training:
+                    done_trainings.append(other_done_training)        
+                       
+            done_trainings = ', '.join(done_trainings)
+            
+            wantTo_trainings = []
+            if 'copywriting' in request.form:
+                wantTo_trainings.append('Copywriting')
+            if 'digital_marketing' in request.form:
+                wantTo_trainings.append('Digital Marketing')
+            if 'graphic_design' in request.form:
+                wantTo_trainings.append('Graphic Design')  
+            if 'data_entry' in request.form:
+                wantTo_trainings.append('Data Entry')    
+            if 'seo' in request.form:
+                wantTo_trainings.append('SEO')    
+            if 'uxui' in request.form:
+                wantTo_trainings.append('UX/UI Design') 
+            if 'other_wantTo_training' in request.form:
+                other_wantTo_training = request.form.get('other_wantTo_training')
+                if other_wantTo_training:
+                    wantTo_trainings.append(other_wantTo_training)        
+                       
+            wantTo_trainings = ', '.join(wantTo_trainings) 
 
         # Check for required fields
             if not ([full_name, email, phone_number, address, educational_level]):
@@ -128,8 +168,8 @@ def registration():
             
             # Perform database operations
             with connection.cursor() as cursor:
-                trainee_create_sql = "INSERT INTO trainees (full_name, organization, email, phone_number, address, educational_level, skills, freelancing_experience, portfolio_link, language_proficiency) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-                cursor.execute(trainee_create_sql, (full_name, organization, email, phone_number, address, educational_level, skills, freelancing_experience, json_data,language_proficiency))
+                trainee_create_sql = "INSERT INTO trainees (full_name, organization, email, phone_number, address, educational_level, skills, freelancing_experience, portfolio_link, language_proficiency, done_trainings, wantTo_trainings) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(trainee_create_sql, (full_name, organization, email, phone_number, address, educational_level, skills, freelancing_experience, json_data,language_proficiency, done_trainings, wantTo_trainings))
                 connection.commit()
 
             return jsonify({'success': 'Registration successful'}), 200
