@@ -246,33 +246,38 @@ def get_blogs_admin_panel():
             return jsonify({'error': f"Request error: {str(e)}"})   
 
 
-@app.route('/blog_creation', methods=['GET', 'POST'])
+@app.route('/blog_creation', methods=['POST'])
 def create_blogs():
     try:
         if request.method == 'POST':
+            # image = request.form['image']
             writers_name = request.form.get('writers_name')
             topic = request.form.get('topic')
             blog_headline = request.form.get('blog_headline')
             blog_details = request.form.get('blog_details')
-           
 
-        # Check for required fields
-            if not ([writers_name, topic, blog_headline, blog_details]):
-                return jsonify({"message": "You must fill up these required fields."}), 400
+            # Check for required fields
+            if not all([writers_name, topic, blog_headline, blog_details]):
+                return jsonify({"message": "You must fill up all required fields."}), 400
             
+            # Save the image file
+            file_photo = request.files['file_photo']
+            if file_photo.filename != '':
+                image = secure_filename(file_photo.filename)
+                file_path = os.path.join('static/mainassets/images/blog_images', image)
+                file_photo.save(file_path)
+                
             # Perform database operations
             with connection.cursor() as cursor:
-                blog_create_sql = "INSERT INTO blogs  (writers_name, topic, blog_headline, blog_details) VALUES (%s, %s, %s, %s)"
-                cursor.execute(blog_create_sql, (writers_name, topic, blog_headline, blog_details))
+                blog_create_sql = "INSERT INTO blogs  (image, writers_name, topic, blog_headline, blog_details) VALUES (%s, %s, %s, %s, %s)"
+                cursor.execute(blog_create_sql, (image, writers_name, topic, blog_headline, blog_details))
                 connection.commit()
 
             return jsonify({'success': 'Blog Creation successful'}), 200
-        
-        elif request.method == 'GET':
-            return jsonify({'message': 'GET request received'}), 200
 
     except Exception as e:
         return jsonify({'error': f"Request error: {str(e)}"}), 500
+
 
 @app.route('/blog_delete/<int:blog_id>', methods=['GET','POST'])
 def blog_delete(blog_id):
