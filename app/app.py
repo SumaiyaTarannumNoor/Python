@@ -227,12 +227,12 @@ def trainee_delete(trainee_id):
 def get_blogs():
         try:
             with connection.cursor() as cursor:
-                blog_sql = "SELECT * FROM blogs"
+                blog_sql = "SELECT * FROM blogs ORDER BY created_at DESC LIMIT 6" 
                 cursor.execute(blog_sql)
                 blog_data = cursor.fetchall()
                 return render_template('blogs.html', blogs=blog_data)
         except Exception as e:
-            return jsonify({'error': f"Request error: {str(e)}"})    
+            return jsonify({'error': f"Request error: {str(e)}"})     
 
 @app.route('/blogs_admin_panel', methods=['GET', 'POST'])
 def get_blogs_admin_panel():
