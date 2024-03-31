@@ -1,3 +1,51 @@
+@app.route('/login_trainee', methods=['POST'])
+def login_trainee():
+    if request.method == 'POST':
+        usermail = request.form.get('usermail')
+        password = request.form.get('pass')  # Encode password to bytes
+
+        with connection.cursor() as cursor:
+            # Retrieve user based on usermail
+            sql = "SELECT * FROM trainees WHERE email = %s"
+            cursor.execute(sql, (usermail,))
+            user = cursor.fetchone()
+
+            if user and password == user['password']:
+                session['loggedin'] = True
+                session['id'] = user['trainee_id']
+                session['email'] = user['email']
+                session['name'] = user['full_name']
+                # Redirect to profile_dashboard route
+                # return redirect(url_for('profile_dashboard'))
+                return jsonify({'redirect': url_for('profile_dashboard')})
+            else:
+                error = "Invalid credentials. Please try again."
+                return jsonify({'error': error})
+    else:
+        return jsonify({'error': 'Method not allowed'})
+
+@app.route('/profile', methods=['GET', 'POST'])
+def get_trainee():
+    if 'loggedin' in session and session['loggedin']:
+        try:
+            with connection.cursor() as cursor:
+                # Retrieve trainee data based on trainee_id
+                trainee_id= session['id']
+                trainee_sql = "SELECT * FROM trainees WHERE trainee_id = %s"
+                cursor.execute(trainee_sql, (trainee_id,))
+                trainee_data = cursor.fetchone()
+                if trainee_data:
+                    # return render_template('profile_dashboard.html', trainee=trainee_data)
+                    return jsonify(trainee_data)
+                else:
+                    return "Trainee not found"
+        except Exception as e:
+            return jsonify({'error': f"Request error: {str(e)}"})
+    else:
+        return redirect(url_for('index'))
+
+
+
 @app.route('/user_gallery', methods=['GET','POST'])
 def get_user_gallary():
     try:
@@ -293,3 +341,9 @@ def blog_delete(blog_id):
         return jsonify({'error': 'Invalid request'})
     except Exception as e:
         return jsonify({'error': f"Request error: {str(e)}"})
+
+@app.route('/trainee_logout')
+def trainee_logout():
+    session.clear()
+    return redirect(url_for('trainee_login')) 
+
