@@ -161,15 +161,17 @@ def registration():
                     wantTo_trainings.append(other_wantTo_training)        
                        
             wantTo_trainings = ', '.join(wantTo_trainings) 
+            
+            password = request.form.get('password')
 
         # Check for required fields
-            if not ([full_name, email, phone_number, address, educational_level]):
+            if not ([full_name, email, phone_number, address, educational_level, password]):
                 return jsonify({"message": "You must fill up these required fields."}), 400
             
             # Perform database operations
             with connection.cursor() as cursor:
-                trainee_create_sql = "INSERT INTO trainees (full_name, organization, email, phone_number, address, educational_level, skills, freelancing_experience, portfolio_link, language_proficiency, done_trainings, wantTo_trainings) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-                cursor.execute(trainee_create_sql, (full_name, organization, email, phone_number, address, educational_level, skills, freelancing_experience, json_data,language_proficiency, done_trainings, wantTo_trainings))
+                trainee_create_sql = "INSERT INTO trainees (full_name, organization, email, phone_number, address, educational_level, skills, freelancing_experience, portfolio_link, language_proficiency, done_trainings, wantTo_trainings, password) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(trainee_create_sql, (full_name, organization, email, phone_number, address, educational_level, skills, freelancing_experience, json_data,language_proficiency, done_trainings, wantTo_trainings, password))
                 connection.commit()
 
             return jsonify({'success': 'Registration successful'}), 200
