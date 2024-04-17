@@ -347,3 +347,19 @@ def trainee_logout():
     session.clear()
     return redirect(url_for('trainee_login')) 
 
+@app.route('/trainee_password_edit/<int:trainee_id>', methods=['GET','POST'])
+def trainee_password_edit(trainee_id):
+    if request.method == 'POST':
+        
+        password = request.form.get('password')
+
+        # Perform database operations
+        try:
+            with connection.cursor() as cursor:
+                trainee_update_sql = "UPDATE trainees SET password = %s WHERE trainee_id = %s"
+                cursor.execute(trainee_update_sql, (password, trainee_id))
+                connection.commit()
+
+            return jsonify({'success': 'Trainee password updated successfully'}), 200
+        except Exception as e:
+            return jsonify({'error': f"Request error: {str(e)}"}), 500    
