@@ -1,3 +1,10 @@
+@app.route('/home')
+def home():
+    if 'loggedin' in session and session['loggedin']:
+        return render_template('home.html')
+    else:
+        return redirect(url_for('trainee_login'))
+
 @app.route('/login_trainee', methods=['POST'])
 def login_trainee():
     if request.method == 'POST':
