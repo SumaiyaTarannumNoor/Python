@@ -120,6 +120,7 @@ def user_gallary_pagination():
     except Exception as e:
         return jsonify({'error': f"Request error: {str(e)}"})
 
+from werkzeug.security import generate_password_hash
 @app.route('/registration', methods=['GET', 'POST'])
 def registration():
     try:
@@ -217,7 +218,7 @@ def registration():
                        
             wantTo_trainings = ', '.join(wantTo_trainings) 
             
-            password = request.form.get('password')
+            password = generate_password_hash(request.form.get('password'))
 
         # Check for required fields
             if not ([full_name, email, phone_number, address, educational_level, password]):
