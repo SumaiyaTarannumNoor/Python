@@ -17,7 +17,7 @@ def login_trainee():
             cursor.execute(sql, (usermail,))
             user = cursor.fetchone()
 
-            if user and password == user['password']:
+            if user and check_password_hash(user['password'], password):
                 session['loggedin'] = True
                 session['id'] = user['trainee_id']
                 session['email'] = user['email']
@@ -120,7 +120,7 @@ def user_gallary_pagination():
     except Exception as e:
         return jsonify({'error': f"Request error: {str(e)}"})
 
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 @app.route('/registration', methods=['GET', 'POST'])
 def registration():
     try:
@@ -512,7 +512,7 @@ def trainee_logout():
 def trainee_password_edit(trainee_id):
     if request.method == 'POST':
         
-        password = request.form.get('password')
+        password = generate_password_hash(request.form.get('password'))
 
         # Perform database operations
         try:
