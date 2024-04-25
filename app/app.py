@@ -51,7 +51,25 @@ def get_trainee():
     else:
         return redirect(url_for('index'))
 
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = generate_password_hash(request.form.get('password'))
+        
+        try:
+            with connection.cursor() as cursor:
+                trainee_update_sql = "UPDATE trainees SET password = %s WHERE email = %s"
+                cursor.execute(trainee_update_sql, (password,email))
+                connection.commit()
+             
+            return jsonify({'success': 'Password updated successfully'}), 200
+        except Exception as e:
+            return jsonify({'error': f"Request error: {str(e)}"}), 500
 
+@app.route('/user_forgot_password')
+def user_forgot_password():
+    return render_template('forgot_password.html') 
 
 @app.route('/user_gallery', methods=['GET','POST'])
 def get_user_gallary():
