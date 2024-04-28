@@ -256,6 +256,21 @@ def registration():
     except Exception as e:
         return jsonify({'error': f"Request error: {str(e)}"}), 500
 
+@app.route('/trainee_list', methods=['GET', 'POST'])
+def get_trainee_list():
+    if request.method == 'GET':
+        try:
+            with connection.cursor() as cursor:
+                trainee_sql = "SELECT * FROM trainees"
+                cursor.execute(trainee_sql)
+                trainee_data = cursor.fetchall()
+                return render_template('trainee_list.html', trainees=trainee_data)
+        except Exception as e:
+            return jsonify({'error': f"Request error: {str(e)}"})
+    elif request.method == 'POST':
+        # Handle POST request logic here
+        pass  # Placeholder for your POST request handling logic
+
 @app.route('/trainee_list_edit/<int:trainee_id>', methods=['GET','POST'])
 def trainee_list_edit(trainee_id):
     if request.method == 'POST':
