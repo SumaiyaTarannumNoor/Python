@@ -5,6 +5,7 @@ def home():
     else:
         return redirect(url_for('trainee_login'))
 
+from werkzeug.security import generate_password_hash, check_password_hash
 @app.route('/login_trainee', methods=['POST'])
 def login_trainee():
     if request.method == 'POST':
