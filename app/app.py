@@ -258,19 +258,74 @@ def registration():
         return jsonify({'error': f"Request error: {str(e)}"}), 500
 
 @app.route('/trainee_list', methods=['GET', 'POST'])
-def get_trainee_list():
-    if request.method == 'GET':
+def trainee_list():
+    if 'loggedin' in session and session['loggedin']:
         try:
             with connection.cursor() as cursor:
-                trainee_sql = "SELECT * FROM trainees"
+                trainee_sql = "SELECT * FROM trainees ORDER BY joined_on  DESC LIMIT 20"
                 cursor.execute(trainee_sql)
                 trainee_data = cursor.fetchall()
-                return render_template('trainee_list.html', trainees=trainee_data)
+
+                count_query = "SELECT COUNT(trainee_id ) FROM trainees"
+                cursor.execute(count_query)
+                total_records = cursor.fetchone()
+                count_value = total_records['COUNT(trainee_id )']
+
+            limit_per_page = 20
+            total_pages = (count_value + limit_per_page)    
+
+            total_pages = math.ceil(total_pages / limit_per_page)-1 
+
+            return render_template('trainee_list.html', trainees=trainee_data, current_page=1, total_pages=total_pages)
         except Exception as e:
             return jsonify({'error': f"Request error: {str(e)}"})
-    elif request.method == 'POST':
-        # Handle POST request logic here
-        pass  # Placeholder for your POST request handling logic
+    else:
+        return redirect(url_for('admin'))
+    
+
+PER_PAGE = 20  # Number of items per page
+START_PAGE = 2  # Starting page number        
+        
+@app.route('/trainee_list_pagination', methods=['GET'])
+def trainee_list_pagination():
+    try:
+        # Get the page number from the request arguments, default to START_PAGE if not provided
+        page = request.args.get('page', START_PAGE, type=int)
+        
+        # selected_year = request.args.get('selected_year')
+
+        # Calculate the OFFSET based on the page number and number of items per page
+        offset = (page - 1) * PER_PAGE
+
+        with connection.cursor() as cursor:
+            
+          
+            # SQL query to fetch paginated data from the users table
+            trainee_sql = f"SELECT * FROM trainees LIMIT %s OFFSET %s"
+            cursor.execute(trainee_sql, (PER_PAGE, offset))
+            trainee_data = cursor.fetchall()
+            
+            count_query = "SELECT COUNT(trainee_id) FROM trainees"
+            cursor.execute(count_query)
+            total_records = cursor.fetchone()
+            count_value = total_records['COUNT(trainee_id)']
+            
+            
+           
+            
+        limit_per_page = 20
+        total_pages = (count_value + limit_per_page)
+        
+        # print(gallary_data)
+        # sys.exit(1)
+        
+        total_pages = math.ceil(total_pages / limit_per_page)-1
+
+        return jsonify({'trainees': trainee_data, 'page': page, 'total_pages': total_pages})
+
+    except Exception as e:
+        return jsonify({'error': f"Request error: {str(e)}"})   
+    
 
 @app.route('/trainee_list_edit/<int:trainee_id>', methods=['GET','POST'])
 def trainee_list_edit(trainee_id):
