@@ -481,14 +481,82 @@ def user_blog_pagination():
 
 @app.route('/blogs_admin_panel', methods=['GET', 'POST'])
 def get_blogs_admin_panel():
+    if 'loggedin' in session and session['loggedin']:
         try:
             with connection.cursor() as cursor:
-                blog_sql = "SELECT * FROM blogs"
+                blog_sql = "SELECT * FROM blogs ORDER BY created_at DESC LIMIT 20"
                 cursor.execute(blog_sql)
                 blog_data = cursor.fetchall()
-                return render_template('blogs_admin_panel.html', blogs=blog_data)
+
+                count_query = "SELECT COUNT(blog_id) FROM blogs"
+                cursor.execute(count_query)
+                total_records = cursor.fetchone()
+                count_value = total_records['COUNT(blog_id )']
+
+            limit_per_page = 20
+            total_pages = (count_value + limit_per_page)    
+
+            total_pages = math.ceil(total_pages / limit_per_page)-1 
+
+            return render_template('blogs_admin_panel.html', blogs=blog_data, current_page=1, total_pages=total_pages)
         except Exception as e:
             return jsonify({'error': f"Request error: {str(e)}"})   
+    else:
+        return redirect(url_for('admin'))       
+
+
+PER_PAGE = 20  # Number of items per page
+START_PAGE = 2  # Starting page number        
+        
+@app.route('/blogs_admin_panel_pagination', methods=['GET'])
+def blogs_admin_panel_pagination():
+    try:
+        # Get the page number from the request arguments, default to START_PAGE if not provided
+        page = request.args.get('page', START_PAGE, type=int)
+        
+        # selected_year = request.args.get('selected_year')
+
+        # Calculate the OFFSET based on the page number and number of items per page
+        offset = (page - 1) * PER_PAGE
+
+        with connection.cursor() as cursor:
+            
+            # if selected_year:
+            #     # SQL query to fetch paginated data from the users table
+            #     users_gallary_sql = f"SELECT * FROM ahm_gallary_partners WHERE category = 'gallary' and year=%s LIMIT %s OFFSET %s"
+            #     cursor.execute(users_gallary_sql, (selected_year, PER_PAGE, offset))
+            #     gallary_data = cursor.fetchall()
+                
+            #     count_query = f"SELECT COUNT(g_p_id) FROM ahm_gallary_partners WHERE category = 'gallary' and year=%s"
+            #     cursor.execute(count_query, (selected_year))
+            #     total_records = cursor.fetchone()
+            #     count_value = total_records['COUNT(g_p_id)']
+            # else:
+                 # SQL query to fetch paginated data from the users table
+                blog_sql = f"SELECT * FROM blogs LIMIT %s OFFSET %s"
+                cursor.execute(blog_sql, (PER_PAGE, offset))
+                blog_data = cursor.fetchall()
+                
+                count_query = "SELECT COUNT(blog_id) FROM blogs"
+                cursor.execute(count_query)
+                total_records = cursor.fetchone()
+                count_value = total_records['COUNT(blog_id  )']
+            
+            
+           
+            
+        limit_per_page = 20
+        total_pages = (count_value + limit_per_page)
+        
+        # print(gallary_data)
+        # sys.exit(1)
+        
+        total_pages = math.ceil(total_pages / limit_per_page)-1
+
+        return jsonify({'blogs': blog_data, 'page': page, 'total_pages': total_pages})
+
+    except Exception as e:
+        return jsonify({'error': f"Request error: {str(e)}"})   
 
 
 @app.route('/blog_creation', methods=['POST'])
