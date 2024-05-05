@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pagination Example</title>
+</head>
+<body>
+<div style="margin-left:600px; margin-top: 100px">
+<table style="color:deeppink; border: 2px solid; margin-bottom: 10px;">
+    <tbody>
+        <tr>
+            <th style="color:deeppink; border: 2px solid">Numbers</th>
+        </tr>
+         {% for item in items_on_page %}
+         <tr>
+         <td style="color:deeppink; border: 2px solid">{{item}}</td>
+         </tr>
+         {% endfor %}
+    </tbody>
+</table>
+    {% if page > 1 %}
+    <a href="{{url_for('index', page=page-1)}}">Previous</a>
+    {% endif %}
+    <span>Page {{page}} of {{total_pages}}</span>
+    {% if page < total_pages %}
+    <a href="{{url_for('index', page=page+1)}}">Next</a>
+    {% endif %}
+</div>
+</body>
+</html>
