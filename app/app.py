@@ -546,7 +546,7 @@ def get_blogs_admin_panel():
                 count_query = "SELECT COUNT(blog_id) FROM blogs"
                 cursor.execute(count_query)
                 total_records = cursor.fetchone()
-                count_value = total_records['COUNT(blog_id )']
+                count_value = total_records['COUNT(blog_id)']
 
             limit_per_page = 20
             total_pages = (count_value + limit_per_page)    
