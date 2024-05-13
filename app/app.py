@@ -32,6 +32,32 @@ def login_trainee():
     else:
         return jsonify({'error': 'Method not allowed'})
 
+@app.route('/approve', methods=['POST'])
+def approve_trainee():
+    if request.method == 'POST':
+        # Get trainee_id and status from the request JSON body
+        data = request.get_json()
+        trainee_id = data.get('trainee_id')
+        status = data.get('status')
+
+        if trainee_id is None or status is None:
+            return jsonify({'error': "trainee_id or status not provided"})
+
+        try:
+            # Convert status to string ('true' or 'false')
+            status_str = 'true' if status else 'false'
+
+            # Update trainee status in the database
+            with connection.cursor() as cursor:
+                cursor.execute("UPDATE trainees SET status = CASE WHEN %s = 'true' THEN 1 WHEN %s = 'false' THEN 0 ELSE status END WHERE trainee_id = %s;", (status_str, status_str, int(trainee_id)))
+                connection.commit()
+                return jsonify({'success': True})
+        except Exception as e:
+            return jsonify({'error': f"Database error: {str(e)}"})
+    else:
+        return jsonify({'error': "Only POST requests are allowed for this endpoint"})
+
+
 @app.route('/profile', methods=['GET', 'POST'])
 def get_trainee():
     if 'loggedin' in session and session['loggedin']:
