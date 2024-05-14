@@ -585,6 +585,7 @@ def get_blogs_admin_panel():
     else:
         return redirect(url_for('admin'))       
 
+//////////////// Previous One ////////////////
 
 PER_PAGE = 20  # Number of items per page
 START_PAGE = 2  # Starting page number        
@@ -638,6 +639,41 @@ def blogs_admin_panel_pagination():
 
     except Exception as e:
         return jsonify({'error': f"Request error: {str(e)}"})   
+
+//////////////// Previous One ////////////////
+
+//////////////// New One ////////////////
+@app.route('/blogs_admin_panel_pagination', methods=['GET', 'POST'])
+def blogs_admin_panel_pagination():
+    try:
+        # Get the page number and sort order from the request arguments
+        page = request.args.get('page', START_PAGE, type=int)
+        sort_order = request.args.get('sort_order', 'desc')
+        
+        # Calculate the OFFSET based on the page number and number of items per page
+        offset = (page - 1) * PER_PAGE
+
+        with connection.cursor() as cursor:
+            # SQL query to fetch paginated data from the blogs table, sorted by created_at in descending order
+            blog_sql = f"SELECT * FROM blogs ORDER BY created_at {sort_order} LIMIT %s OFFSET %s"
+            cursor.execute(blog_sql, (PER_PAGE, offset))
+            blog_data = cursor.fetchall()
+            
+            # Query to get the total number of records in the blogs table
+            count_query = "SELECT COUNT(blog_id) FROM blogs"
+            cursor.execute(count_query)
+            total_records = cursor.fetchone()
+            count_value = total_records['COUNT(blog_id)']
+            
+            # Calculate the total number of pages based on the total number of records and items per page
+            total_pages = math.ceil(count_value / PER_PAGE)
+
+        return jsonify({'blogs': blog_data, 'page': page, 'total_pages': total_pages})
+
+    except Exception as e:
+        return jsonify({'error': f"Request error: {str(e)}"})
+//////////////// New One ////////////////
+        
 
 
 @app.route('/blog_creation', methods=['POST'])
