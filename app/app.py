@@ -643,6 +643,8 @@ def blogs_admin_panel_pagination():
 //////////////// Previous One ////////////////
 
 //////////////// New One ////////////////
+PER_PAGE = 10  # Number of items per page
+START_PAGE = 2  # Starting page number       
 @app.route('/blogs_admin_panel_pagination', methods=['GET', 'POST'])
 def blogs_admin_panel_pagination():
     try:
