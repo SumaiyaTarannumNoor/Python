@@ -712,6 +712,8 @@ def create_blogs():
 
 
 ////////////////// Blog Creation using different image name //////////////////
+import uuid
+from datetime import datetime
 @app.route('/blog_creation', methods=['POST'])
 def create_blogs():
     try:
