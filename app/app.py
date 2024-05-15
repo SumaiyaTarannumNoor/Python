@@ -404,7 +404,7 @@ def get_blogs():
                 cursor.execute(blog_sql)
                 blog_data = cursor.fetchall()
                 
-                count_query = "SELECT COUNT(blog_id) FROM blogs"
+                count_query = "SELECT COUNT(blog_id) FROM blogs WHERE status = 1"
                 cursor.execute(count_query)
                 total_records = cursor.fetchone()
                 count_value = total_records['COUNT(blog_id)']
@@ -450,11 +450,11 @@ def blog_pagination():
             #     count_value = total_records['COUNT(g_p_id)']
             # else:
                  # SQL query to fetch paginated data from the users table
-                blog_sql = f"SELECT * FROM blogs LIMIT %s OFFSET %s"
+                blog_sql = f"SELECT * FROM blogs WHERE status = 1 LIMIT %s OFFSET %s"
                 cursor.execute(blog_sql, (PER_PAGE, offset))
                 blog_data = cursor.fetchall()
                 
-                count_query = "SELECT COUNT(blog_id) FROM blogs"
+                count_query = "SELECT COUNT(blog_id) FROM blogs WHERE status = 1"
                 cursor.execute(count_query)
                 total_records = cursor.fetchone()
                 count_value = total_records['COUNT(blog_id)']
