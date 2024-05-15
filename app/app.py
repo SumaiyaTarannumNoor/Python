@@ -748,6 +748,30 @@ def create_blogs():
         return jsonify({'error': f"Request error: {str(e)}"}), 500
 ////////////////// Blog Creation using different image name //////////////////
 
+@app.route('/blog_approve', methods=['POST'])
+def approve_blog():
+    if request.method == 'POST':
+        # Get trainee_id and status from the request JSON body
+        data = request.get_json()
+        blog_id = data.get('blog_id')
+        status = data.get('status')
+
+        if blog_id is None or status is None:
+            return jsonify({'error': "blog_id or status not provided"})
+
+        try:
+            # Convert status to string ('true' or 'false')
+            status_str = 'true' if status else 'false'
+
+            # Update trainee status in the database
+            with connection.cursor() as cursor:
+                cursor.execute("UPDATE blogs SET status = CASE WHEN %s = 'true' THEN 1 WHEN %s = 'false' THEN 0 ELSE status END WHERE blog_id = %s;", (status_str, status_str, int(blog_id)))
+                connection.commit()
+                return jsonify({'success': True})
+        except Exception as e:
+            return jsonify({'error': f"Database error: {str(e)}"})
+    else:
+        return jsonify({'error': "Only POST requests are allowed for this endpoint"})
 
 @app.route('/blog_delete/<int:blog_id>', methods=['GET','POST'])
 def blog_delete(blog_id):
