@@ -714,7 +714,7 @@ def create_blogs():
 @app.route('/blog_delete/<int:blog_id>', methods=['GET','POST'])
 def blog_delete(blog_id):
     try:
-        if request.method == 'POST'
+        if request.method == 'POST':
             cursor = connection.cursor()
             event_delete_query = "DELETE FROM trainees  WHERE blog_id  = %s"
             cursor.execute(event_delete_query, (blog_id))
