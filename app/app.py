@@ -400,7 +400,7 @@ def trainee_delete(trainee_id):
 def get_blogs():
         try:
             with connection.cursor() as cursor:
-                blog_sql = "SELECT * FROM blogs ORDER BY created_at DESC LIMIT 6" 
+                blog_sql = "SELECT * FROM blogs WHERE status = 1 ORDER BY created_at DESC LIMIT 6" 
                 cursor.execute(blog_sql)
                 blog_data = cursor.fetchall()
                 
