@@ -711,6 +711,42 @@ def create_blogs():
         return jsonify({'error': f"Request error: {str(e)}"}), 500
 
 
+////////////////// Blog Creation using different image name //////////////////
+@app.route('/blog_creation', methods=['POST'])
+def create_blogs():
+    try:
+        if request.method == 'POST':
+            # image = request.form['image']
+            writers_name = request.form.get('writers_name')
+            topic = request.form.get('topic')
+            blog_headline = request.form.get('blog_headline')
+            blog_details = request.form.get('blog_details')
+
+            # Check for required fields
+            if not all([writers_name, topic, blog_headline, blog_details]):
+                return jsonify({"message": "You must fill up all required fields."}), 400
+            
+            # Save the image file with a unique filename
+            file_photo = request.files['file_photo']
+            if file_photo.filename != '':
+                # Generate a unique filename
+                unique_filename = str(uuid.uuid4()) + "_" + secure_filename(file_photo.filename)
+                file_path = os.path.join('static/mainassets/images/blog_images', unique_filename)
+                file_photo.save(file_path)
+                
+            # Perform database operations
+            with connection.cursor() as cursor:
+                blog_create_sql = "INSERT INTO blogs  (image, writers_name, topic, blog_headline, blog_details) VALUES (%s, %s, %s, %s, %s)"
+                cursor.execute(blog_create_sql, (unique_filename, writers_name, topic, blog_headline, blog_details))
+                connection.commit()
+
+            return jsonify({'success': 'Blog Creation successful'}), 200
+
+    except Exception as e:
+        return jsonify({'error': f"Request error: {str(e)}"}), 500
+////////////////// Blog Creation using different image name //////////////////
+
+
 @app.route('/blog_delete/<int:blog_id>', methods=['GET','POST'])
 def blog_delete(blog_id):
     try:
