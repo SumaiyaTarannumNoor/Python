@@ -475,11 +475,11 @@ def trainee_delete(trainee_id):
 def get_blogs():
         try:
             with connection.cursor() as cursor:
-                blog_sql = "SELECT * FROM blogs WHERE status = 1 ORDER BY created_at DESC LIMIT 6" 
+                blog_sql = "SELECT * FROM blogs WHERE status=1 ORDER BY created_at DESC LIMIT 6" 
                 cursor.execute(blog_sql)
                 blog_data = cursor.fetchall()
                 
-                count_query = "SELECT COUNT(blog_id) FROM blogs WHERE status = 1"
+                count_query = "SELECT COUNT(blog_id) FROM blogs WHERE status=1"
                 cursor.execute(count_query)
                 total_records = cursor.fetchone()
                 count_value = total_records['COUNT(blog_id)']
@@ -497,19 +497,19 @@ def get_blogs():
         except Exception as e:
             return jsonify({'error': f"Request error: {str(e)}"})   
         
-PER_PAGE = 6  # Number of items per page
-START_PAGE = 2  # Starting page number        
+blog_PER_PAGE = 6  # Number of items per page
+blog_START_PAGE = 2  # Starting page number        
         
 @app.route('/blog_pagination', methods=['GET'])
 def blog_pagination():
     try:
         # Get the page number from the request arguments, default to START_PAGE if not provided
-        page = request.args.get('page', START_PAGE, type=int)
+        page = request.args.get('page', blog_START_PAGE, type=int)
         
         # selected_year = request.args.get('selected_year')
 
         # Calculate the OFFSET based on the page number and number of items per page
-        offset = (page - 1) * PER_PAGE
+        offset = (page - 1) * blog_PER_PAGE
 
         with connection.cursor() as cursor:
             
@@ -525,11 +525,11 @@ def blog_pagination():
             #     count_value = total_records['COUNT(g_p_id)']
             # else:
                  # SQL query to fetch paginated data from the users table
-                blog_sql = f"SELECT * FROM blogs WHERE status = 1 LIMIT %s OFFSET %s"
-                cursor.execute(blog_sql, (PER_PAGE, offset))
+                blog_sql = f"SELECT * FROM blogs WHERE status=1 ORDER BY created_at DESC LIMIT %s OFFSET %s"
+                cursor.execute(blog_sql, (blog_PER_PAGE, offset))
                 blog_data = cursor.fetchall()
                 
-                count_query = "SELECT COUNT(blog_id) FROM blogs WHERE status = 1"
+                count_query = "SELECT COUNT(blog_id) FROM blogs WHERE status=1"
                 cursor.execute(count_query)
                 total_records = cursor.fetchone()
                 count_value = total_records['COUNT(blog_id)']
@@ -548,7 +548,7 @@ def blog_pagination():
         return jsonify({'blogs': blog_data, 'page': page, 'total_pages': total_pages})
 
     except Exception as e:
-        return jsonify({'error': f"Request error: {str(e)}"})         
+        return jsonify({'error': f"Request error: {str(e)}"})          
 
 @app.route('/user_blogs', methods=['GET', 'POST'])
 def user_blogs():
