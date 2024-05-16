@@ -265,18 +265,44 @@ def registration():
             
             password = generate_password_hash(request.form.get('password'))
 
-        # Check for required fields
+            # Check for required fields
             if not ([full_name, email, phone_number, address, educational_level, password]):
                 return jsonify({"message": "You must fill up these required fields."}), 400
             
+            file_photo = request.files['file_photo']
+            if file_photo.filename != '':
+                # Generate a unique filename
+                unique_filename = str(uuid.uuid4()) + "_" + secure_filename(file_photo.filename)
+                file_path = os.path.join('static/mainassets/images/trainees_images', unique_filename)
+                file_photo.save(file_path)
+            
             # Perform database operations
             with connection.cursor() as cursor:
-                trainee_create_sql = "INSERT INTO trainees (full_name, organization, email, phone_number, address, educational_level, skills, freelancing_experience, portfolio_link, language_proficiency, done_trainings, wantTo_trainings, password) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-                cursor.execute(trainee_create_sql, (full_name, organization, email, phone_number, address, educational_level, skills, freelancing_experience, json_data,language_proficiency, done_trainings, wantTo_trainings, password))
-                connection.commit()
+                trainee_create_sql = "INSERT INTO trainees (trainee_image,full_name, organization, email, phone_number, address, educational_level, skills, freelancing_experience, portfolio_link, language_proficiency, done_trainings, wantTo_trainings, password) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(trainee_create_sql, (unique_filename, full_name, organization, email, phone_number, address, educational_level, skills, freelancing_experience, json_data,language_proficiency, done_trainings, wantTo_trainings, password))
+                connection.commit()    
+                
+            # send_registration_email(email, full_name)     
+            msg = Message('Welcome to Freelancing Pathshala!', recipients=[email])
+            
+            # filename = "FreelancingPathshalaWelcome.jpg"
+            # # url_for('static', filename='mainassets/images/welcome_message/FreelancingPathshalaWelcome.jpg', _external=True)
+            # path = os.path.join("static/mainassets/images/welcome_message", filename)
+            # with open(path, "rb") as f:
+            #     data = f.read()
+            # type = os.path.splitext(path)[1][1:]
+            # base64_data = base64.b64encode(data).decode("utf-8")
+            # base64_image = "data:image/" + type + ";base64," + base64_data
+
+
+            # Render the HTML template with the image file name passed as a keyword argument
+            msg.html = render_template("welcome_mail.html", full_name=full_name, msg=msg)
+
+            # Send the email
+            mail.send(msg)
 
             return jsonify({'success': 'Registration successful'}), 200
-        
+                
         elif request.method == 'GET':
             return jsonify({'message': 'GET request received'}), 200
 
