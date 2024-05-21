@@ -774,7 +774,7 @@ def create_blogs():
                 cursor.execute(blog_create_sql, (image, writers_name, topic, blog_headline, blog_details))
                 connection.commit()
 
-            return jsonify({'success': 'Blog Creation successful'}), 200
+            return jsonify({'success': 'Blog Creation successful; Wait for Admins Approval.'}), 200
 
     except Exception as e:
         return jsonify({'error': f"Request error: {str(e)}"}), 500
@@ -811,7 +811,7 @@ def create_blogs():
                 cursor.execute(blog_create_sql, (unique_filename, writers_name, topic, blog_headline, blog_details))
                 connection.commit()
 
-            return jsonify({'success': 'Blog Creation successful'}), 200
+            return jsonify({'success': 'Blog Creation successful; Wait for Admins Approval.'}), 200
 
     except Exception as e:
         return jsonify({'error': f"Request error: {str(e)}"}), 500
