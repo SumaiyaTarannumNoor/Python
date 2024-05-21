@@ -713,20 +713,20 @@ def blogs_admin_panel_pagination():
 
 //////////////// New One ////////////////
 PER_PAGE = 10  # Number of items per page
-START_PAGE = 2  # Starting page number       
-@app.route('/blogs_admin_panel_pagination', methods=['GET', 'POST'])
+START_PAGE = 2  # Starting page number        
+        
+@app.route('/blogs_admin_panel_pagination', methods=['GET'])
 def blogs_admin_panel_pagination():
     try:
-        # Get the page number and sort order from the request arguments
+        # Get the page number from the request arguments, default to START_PAGE if not provided
         page = request.args.get('page', START_PAGE, type=int)
-        sort_order = request.args.get('sort_order', 'desc')
         
         # Calculate the OFFSET based on the page number and number of items per page
         offset = (page - 1) * PER_PAGE
 
         with connection.cursor() as cursor:
-            # SQL query to fetch paginated data from the blogs table, sorted by created_at in descending order
-            blog_sql = f"SELECT * FROM blogs ORDER BY created_at {sort_order} LIMIT %s OFFSET %s"
+            # SQL query to fetch paginated data from the blogs table
+            blog_sql = "SELECT * FROM blogs ORDER BY created_at DESC LIMIT %s OFFSET %s"
             cursor.execute(blog_sql, (PER_PAGE, offset))
             blog_data = cursor.fetchall()
             
@@ -742,7 +742,7 @@ def blogs_admin_panel_pagination():
         return jsonify({'blogs': blog_data, 'page': page, 'total_pages': total_pages})
 
     except Exception as e:
-        return jsonify({'error': f"Request error: {str(e)}"})
+        return jsonify({'error': f"Request error: {str(e)}"})   
 //////////////// New One ////////////////
         
 
