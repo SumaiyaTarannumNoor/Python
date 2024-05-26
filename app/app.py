@@ -330,7 +330,7 @@ def registration():
                 connection.commit()    
                 
             # send_registration_email(email, full_name)     
-            msg = Message('Welcome to Freelancing Pathshala!', recipients=[email])
+            msg = Message('Welcome !', recipients=[email])
             
             # filename = "FreelancingPathshalaWelcome.jpg"
             # # url_for('static', filename='mainassets/images/welcome_message/FreelancingPathshalaWelcome.jpg', _external=True)
@@ -355,6 +355,150 @@ def registration():
 
     except Exception as e:
         return jsonify({'error': f"Request error: {str(e)}"}), 500
+
+///////////////////////////////////////////////////Google Sheet API Intrigation////////////////////////////////////////////////////////
+import base64
+import math
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
+SERVICE_ACCOUNT_FILE = 'path_to_json_file.json'
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+
+credentials = service_account.Credentials.from_service_account_file(
+    SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+
+service = build('sheets', 'v4', credentials=credentials)
+
+SPREADSHEET_ID = '#################'  # Replace with your actual spreadsheet ID
+RANGE_NAME = 'Sheet1!A3'  # Adjust this based on where you want to start inserting data
+
+@app.route('/registration', methods=['GET', 'POST'])
+def registration():
+    try:
+        if request.method == 'POST':
+            full_name = request.form.get('full_name')
+            email = request.form.get('email')
+            organization = request.form.get('organization')
+            phone_number = request.form.get('phone_number')
+            address = request.form.get('address')
+            educational_level = request.form.get('educational_level')
+            skills = request.form.get('skills')
+            freelancing_experience = request.form.get('freelancing_experience')
+
+            portfolio_links = {}
+            if 'fiverr' in request.form:
+                portfolio_links['fiverr'] = request.form.get('fiverr_link')
+            if 'upwork' in request.form:
+                portfolio_links['upwork'] = request.form.get('upwork_link')
+            if 'freelancer' in request.form:
+                portfolio_links['freelancer'] = request.form.get('freelancer_link')
+            if 'toptal' in request.form:
+                portfolio_links['toptal'] = request.form.get('toptal_link')
+            if 'guru' in request.form:
+                portfolio_links['guru'] = request.form.get('guru_link')
+            if 'other' in request.form:
+                portfolio_links['other'] = request.form.get('other_link')
+
+            json_data = json.dumps(portfolio_links)
+
+            languages = []
+            if 'bangla' in request.form:
+                languages.append('Bangla')
+            if 'english' in request.form:
+                languages.append('English')
+            if 'other_language' in request.form:
+                other_language = request.form.get('other_language')
+                if other_language:
+                    languages.append(other_language)
+            language_proficiency = ', '.join(languages)
+
+            done_trainings = []
+            if 'copywriting' in request.form:
+                done_trainings.append('Copywriting')
+            if 'digital_marketing' in request.form:
+                done_trainings.append('Digital Marketing')
+            if 'graphic_design' in request.form:
+                done_trainings.append('Graphic Design')
+            if 'data_entry' in request.form:
+                done_trainings.append('Data Entry')
+            if 'seo' in request.form:
+                done_trainings.append('SEO')
+            if 'uxui' in request.form:
+                done_trainings.append('UX/UI Design')
+            if 'other_done_training' in request.form:
+                other_done_training = request.form.get('other_done_training')
+                if other_done_training:
+                    done_trainings.append(other_done_training)
+            done_trainings = ', '.join(done_trainings)
+
+            wantTo_trainings = []
+            if 'copywriting' in request.form:
+                wantTo_trainings.append('Copywriting')
+            if 'digital_marketing' in request.form:
+                wantTo_trainings.append('Digital Marketing')
+            if 'graphic_design' in request.form:
+                wantTo_trainings.append('Graphic Design')
+            if 'data_entry' in request.form:
+                wantTo_trainings.append('Data Entry')
+            if 'seo' in request.form:
+                wantTo_trainings.append('SEO')
+            if 'uxui' in request.form:
+                wantTo_trainings.append('UX/UI Design')
+            if 'other_wantTo_training' in request.form:
+                other_wantTo_training = request.form.get('other_wantTo_training')
+                if other_wantTo_training:
+                    wantTo_trainings.append(other_wantTo_training)
+            wantTo_trainings = ', '.join(wantTo_trainings)
+
+            password = generate_password_hash(request.form.get('password'))
+
+            if not all([full_name, email, phone_number, address, educational_level, password]):
+                return jsonify({"message": "You must fill up these required fields."}), 400
+
+            file_photo = request.files['file_photo']
+            if file_photo.filename != '':
+                unique_filename = str(uuid.uuid4()) + "_" + secure_filename(file_photo.filename)
+                file_path = os.path.join('static/mainassets/images/trainees_images', unique_filename)
+                file_photo.save(file_path)
+
+            # Perform database operations here
+
+            # Google Sheets API integration
+            values = [
+                [
+                    full_name, email, organization, phone_number, address, educational_level,
+                    skills, freelancing_experience, json_data, language_proficiency,
+                    done_trainings, wantTo_trainings
+                ]
+            ]
+            body = {
+                'values': values
+            }
+
+            result = service.spreadsheets().values().append(
+                spreadsheetId=SPREADSHEET_ID,
+                range=RANGE_NAME,
+                valueInputOption="RAW",
+                body=body
+            ).execute()
+
+            msg = Message('Welcome!', recipients=[email])
+            msg.html = render_template("welcome_mail.html", full_name=full_name, msg=msg)
+            mail.send(msg)
+
+            return jsonify({'success': 'Registration successful', 'result': result}), 200
+
+        elif request.method == 'GET':
+            return jsonify({'message': 'GET request received'}), 200
+
+    except Exception as e:
+        return jsonify({'error': f"Request error: {str(e)}"}), 500
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 @app.route('/trainee_list', methods=['GET', 'POST'])
 def trainee_list():
