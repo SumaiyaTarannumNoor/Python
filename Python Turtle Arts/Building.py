@@ -4,6 +4,8 @@ from turtle import *
 
 speed(0)
 bgcolor("deepskyblue")
+setup(800, 500)
+
 
 #dome
 penup()
@@ -13,7 +15,6 @@ color("deeppink")
 begin_fill()
 circle(100)
 end_fill()
-
 
 #first bottom layer
 penup()
@@ -27,6 +28,8 @@ for i in range(2):
     forward(20)
     left(90)
 end_fill()
+
+
 
 #seond bottom layer
 penup()
@@ -80,6 +83,30 @@ for i in range(2):
     left(90)
 end_fill()
 
+# Windows
+x = -125
+y = 30
+color("khaki")
+
+# Draw a single window_height
+def window():
+    global x
+    penup()
+    goto(x, y)
+    begin_fill()
+    for i in range(4):
+        forward(40)
+        left(90)
+    end_fill()
+
+    x = x + 70
+
+# Draw the windows
+for i in range(4): # 4 rows
+    for i in range(4): # 4 columns
+        window()
+    x = -125
+    y = y - 60
 
 
 hideturtle()
