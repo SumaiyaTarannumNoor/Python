@@ -1020,3 +1020,67 @@ def trainee_password_edit(trainee_id):
             return jsonify({'success': 'Trainee password updated successfully'}), 200
         except Exception as e:
             return jsonify({'error': f"Request error: {str(e)}"}), 500    
+
+########################################################################################################################################################################################
+
+################################################################ N   E   W        V   E   R   S   I   O   N ############################################################################
+
+
+@app.route('/user_blog', methods=['POST'])
+def user_blog():
+    if 'logged_in' in session and session['logged_in']:
+        try:
+            # Get user's email from session
+            email = session['user_email']
+            
+            # Extract form data
+            emojiText = request.form.get('emojiText')
+            imageFile = request.files.get('imageFile')
+            
+            # Set image_data to None if not provided
+            image_data = None
+            if imageFile:
+                filename = secure_filename(imageFile.filename)
+                image_data = imageFile.read()
+            
+            # Connect to the database
+            connection = pymysql.connect(**db_config)
+            
+            try:
+                with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+                    # First, fetch user details from student_signup table
+                    sql_fetch_user = """
+                    SELECT Full_name, Image, Freelancing_Experience
+                    FROM student_signup
+                    WHERE Email = %s
+                    """
+                    cursor.execute(sql_fetch_user, (email,))
+                    user_data = cursor.fetchone()
+                    
+                    if not user_data:
+                        return jsonify({"message": "User not found"}), 404
+                    
+                    user_name = user_data['Full_name']
+                    user_image = user_data['Image']
+                    years_of_experience = user_data['Freelancing_Experience']
+                    
+                    # Now insert data into user_blog table
+                    sql_insert_blog = '''
+                    INSERT INTO user_blog (email, emojiText, imageFile, approve, user_name, user_image, years_of_experience)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    '''
+                    cursor.execute(sql_insert_blog, (email, emojiText, image_data, False, user_name, user_image, years_of_experience))
+                
+                # Commit changes
+                connection.commit()
+                
+                return jsonify({"message": "Post successful"}), 200
+                
+            finally:
+                connection.close()
+                
+        except Exception as e:
+            print(f"Error processing request: {str(e)}")
+            return jsonify({"message": "An error occurred. Please try again."}), 500
+    
+    return jsonify({"message": "User not authenticated or request processing failed."}), 401
