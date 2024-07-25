@@ -1084,3 +1084,99 @@ def user_blog():
             return jsonify({"message": "An error occurred. Please try again."}), 500
     
     return jsonify({"message": "User not authenticated or request processing failed."}), 401
+
+
+# For Recurrent Data
+# @app.route('/copy_to_trending', methods=['POST'])
+# def copy_to_trending():
+#     try:
+#         connection = pymysql.connect(**db_config)
+#         print("Database connection established.")
+#         with connection.cursor() as cursor:
+#             # First, get the IDs of the three most recent records in the latest table
+#             cursor.execute("SELECT latest_id FROM latest ORDER BY created_at DESC LIMIT 3")
+#             recent_ids = [row['latest_id'] for row in cursor.fetchall()]
+
+#             # Now, select all records from latest except the three most recent
+#             cursor.execute("""
+#                 SELECT latest_link, latest_title, latest_details, created_at
+#                 FROM latest
+#                 WHERE latest_id NOT IN (%s, %s, %s)
+#             """, tuple(recent_ids))
+#             records_to_copy = cursor.fetchall()
+
+#             # Insert these records into the trending table
+#             if records_to_copy:
+#                 cursor.executemany("""
+#                     INSERT INTO trending (trending_link, trending_title, trending_details, created_at)
+#                     VALUES (%s, %s, %s, %s)
+#                 """, [(row['latest_link'], row['latest_title'], row['latest_details'], row['created_at']) for row in records_to_copy])
+
+#                 connection.commit()
+#                 return jsonify({
+#                     "message": f"Successfully copied {len(records_to_copy)} records to trending table.",
+#                     "copied_count": len(records_to_copy)
+#                 }), 200
+#             else:
+#                 return jsonify({"message": "No records to copy."}), 200
+
+#     except pymysql.MySQLError as e:
+#         print(f"MySQL error: {str(e)}")
+#         connection.rollback()
+#         return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+#     except Exception as e:
+#         print(f"Error: {str(e)}")
+#         connection.rollback()
+#         return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+#     finally:
+#         connection.close()
+
+
+# For All time new update
+@app.route('/copy_to_trending', methods=['POST'])
+def copy_to_trending():
+    try:
+        connection = pymysql.connect(**db_config)
+        print("Database connection established.")
+        with connection.cursor() as cursor:
+            # First, get the IDs of the three most recent records in the latest table
+            cursor.execute("SELECT latest_id FROM latest ORDER BY created_at DESC LIMIT 3")
+            recent_ids = [row['latest_id'] for row in cursor.fetchall()]
+
+            # Now, select all records from latest except the three most recent
+            cursor.execute("""
+                SELECT latest_link, latest_title, latest_details, created_at
+                FROM latest
+                WHERE latest_id NOT IN (%s, %s, %s)
+            """, tuple(recent_ids))
+            records_to_copy = cursor.fetchall()
+
+            # Clear the trending table
+            cursor.execute("DELETE FROM trending")
+
+            # Insert these records into the trending table
+            if records_to_copy:
+                cursor.executemany("""
+                    INSERT INTO trending (trending_link, trending_title, trending_details, created_at)
+                    VALUES (%s, %s, %s, %s)
+                """, [(row['latest_link'], row['latest_title'], row['latest_details'], row['created_at']) for row in records_to_copy])
+
+                connection.commit()
+                return jsonify({
+                    "message": f"Successfully copied {len(records_to_copy)} records to trending table.",
+                    "copied_count": len(records_to_copy)
+                }), 200
+            else:
+                return jsonify({"message": "No records to copy."}), 200
+
+    except pymysql.MySQLError as e:
+        print(f"MySQL error: {str(e)}")
+        connection.rollback()
+        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        connection.rollback()
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()
+
