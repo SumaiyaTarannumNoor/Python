@@ -1180,3 +1180,87 @@ def copy_to_trending():
     finally:
         connection.close()
 
+/////////////////////////////////////////// ADMIN PANEL /////////////////////////////////////////////////////////////////
+
+@app.route('/seminer_upload', methods=['POST'])
+def seminer_upload():
+    data = request.get_json()
+    seminer_date = data.get('seminer_date')
+    seminer_name = data.get('seminer_name')
+    seminer_details = data.get('seminer_details')
+    seminer_image = data.get('seminer_image')
+    status = False  # Default status
+    created_at = None  # Will be set by the database
+
+    if seminer_date and seminer_name and seminer_details and seminer_image:
+        try:
+            # Decode base64 image
+            seminer_image_data = base64.b64decode(seminer_image)
+
+            # Connect to the database
+            connection = pymysql.connect(**db_config)
+
+            try:
+                with connection.cursor() as cursor:
+                    sql_insert_seminer = '''
+                    INSERT INTO seminers (seminer_date, seminer_name, seminer_details, seminer_image, status, created_at)
+                    VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    '''
+                    cursor.execute(sql_insert_seminer, (seminer_date, seminer_name, seminer_details, seminer_image_data, status))
+
+                # Commit changes
+                connection.commit()
+
+                return jsonify({"message": "Seminar upload successful"}), 200
+
+            except Exception as e:
+                print(f"Error processing request: {str(e)}")
+                return jsonify({"message": "An error occurred. Please try again."}), 500
+
+            finally:
+                connection.close()
+
+        except Exception as e:
+            print(f"Error processing request: {str(e)}")
+            return jsonify({"message": "An error occurred. Please try again."}), 500
+
+    return jsonify({"message": "Invalid input or request processing failed."}), 400
+
+
+
+@app.route('/fetch_seminers', methods=['GET'])
+def fetch_seminers():
+    try:
+        connection = pymysql.connect(**db_config)
+        
+        with connection.cursor() as cursor:
+            sql = "SELECT * FROM seminers ORDER BY created_at DESC"
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+
+            if rows:
+                seminers = []
+                for row in rows:
+                    # Encode image data as base64
+                    image_data = base64.b64encode(row['seminer_image']).decode('utf-8') if row['seminer_image'] else None
+                    seminers.append({
+                        'seminer_date': row['seminer_date'],
+                        'seminer_name': row['seminer_name'],
+                        'seminer_details': row['seminer_details'],
+                        'status': row['status'],
+                        'created_at': row['created_at'],
+                        'seminer_image': image_data
+                    })
+                return jsonify(seminers), 200
+            else:
+                return jsonify({"message": "No seminar records found"}), 404
+
+    except pymysql.MySQLError as e:
+        # Detailed error message
+        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+    except Exception as e:
+        # Detailed error message
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()
+
