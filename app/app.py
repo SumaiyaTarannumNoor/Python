@@ -1365,3 +1365,35 @@ def delete_seminar(seminer_id):
         return jsonify({"message": "An error occurred!", "error": str(e)}), 500
     finally:
         connection.close()
+
+@app.route('/fetch_seminers_last_two', methods=['GET'])
+def fetch_seminers_last_two():
+    try:
+        connection = pymysql.connect(**db_config)
+        
+        with connection.cursor() as cursor:
+            sql = "SELECT * FROM seminers ORDER BY seminer_id DESC LIMIT 2"
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+
+            if rows:
+                seminers = []
+                for row in rows:
+                    seminers.append({
+                        'seminer_date': row['seminer_date'],
+                        'seminer_name': row['seminer_name'],
+                        'seminer_details': row['seminer_details'],
+                        'status': row['status'],
+                        'created_at': row['created_at'],
+                    })
+                return jsonify(seminers), 200
+            else:
+                return jsonify({"message": "No seminar records found"}), 404
+
+    except pymysql.MySQLError as e:
+        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+    except Exception as e:
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()        
+
