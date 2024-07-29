@@ -1190,12 +1190,21 @@ def seminer_upload():
     seminer_details = data.get('seminer_details')
     seminer_image = data.get('seminer_image')
     status = False  # Default status
-    created_at = None  # Will be set by the database
 
     if seminer_date and seminer_name and seminer_details and seminer_image:
         try:
+            # Check if the base64 string starts with the data URL scheme
+            if not seminer_image.startswith('data:image/'):
+                return jsonify({"message": "Invalid image format."}), 400
+
+            # Extract the MIME type and base64 data
+            header, image_data = seminer_image.split(',', 1)
+            mime_type = header.split(';')[0].split(':')[1]
+            if mime_type not in ['image/jpeg', 'image/png', 'image/jpg']:
+                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
+
             # Decode base64 image
-            seminer_image_data = base64.b64decode(seminer_image)
+            seminer_image_data = base64.b64decode(image_data)
 
             # Connect to the database
             connection = pymysql.connect(**db_config)
@@ -1213,6 +1222,10 @@ def seminer_upload():
 
                 return jsonify({"message": "Seminar upload successful"}), 200
 
+            except pymysql.MySQLError as e:
+                print(f"Database error: {e}")
+                return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+
             except Exception as e:
                 print(f"Error processing request: {str(e)}")
                 return jsonify({"message": "An error occurred. Please try again."}), 500
@@ -1225,6 +1238,8 @@ def seminer_upload():
             return jsonify({"message": "An error occurred. Please try again."}), 500
 
     return jsonify({"message": "Invalid input or request processing failed."}), 400
+
+
 
 
 
@@ -1244,6 +1259,7 @@ def fetch_seminers():
                     # Encode image data as base64
                     image_data = base64.b64encode(row['seminer_image']).decode('utf-8') if row['seminer_image'] else None
                     seminers.append({
+                        'seminer_id': row['seminer_id'],
                         'seminer_date': row['seminer_date'],
                         'seminer_name': row['seminer_name'],
                         'seminer_details': row['seminer_details'],
@@ -1264,3 +1280,88 @@ def fetch_seminers():
     finally:
         connection.close()
 
+@app.route('/fetch_seminer_image', methods=['GET'])
+def fetch_seminer_image():
+    try:
+        connection = pymysql.connect(**db_config)
+        
+        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+            sql = "SELECT seminer_image FROM seminers WHERE status = 1"
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+
+            if rows:
+                seminers = []
+                for row in rows:
+                    # Encode image data as base64
+                    image_data = base64.b64encode(row['seminer_image']).decode('utf-8') if row['seminer_image'] else None
+                    seminers.append({
+                        'seminer_image': image_data
+                    })
+                return jsonify(seminers), 200
+            else:
+                return jsonify({"message": "No seminar records found"}), 404
+
+    except pymysql.MySQLError as e:
+        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+    except Exception as e:
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()  
+
+@app.route('/update_seminar_status/<int:seminer_id>', methods=['POST'])
+def update_seminar_status(seminer_id):
+    print(f"Received request to update seminar with ID: {seminer_id}")
+    try:
+        data = request.get_json()
+        print(f"Request data: {data}")
+
+        new_status = data.get('status')
+        if new_status not in [0, 1]:
+            return jsonify({"message": "Invalid status value. Must be 0 or 1."}), 400
+
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            sql_update_status = "UPDATE seminers SET status = %s WHERE seminer_id = %s"
+            cursor.execute(sql_update_status, (new_status, seminer_id))
+        
+        connection.commit()
+        return jsonify({"message": "Status updated successfully"}), 200
+
+    except pymysql.MySQLError as e:
+        print(f"Database error: {e}")
+        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+    except Exception as e:
+        print(f"General error: {e}")
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()
+
+@app.route('/delete_seminar/<int:seminer_id>', methods=['DELETE'])
+def delete_seminar(seminer_id):
+    print(f"Received request to delete seminar with ID: {seminer_id}")
+    try:
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # First, check if the seminar exists
+            sql_check_existence = "SELECT * FROM seminers WHERE seminer_id = %s"
+            cursor.execute(sql_check_existence, (seminer_id,))
+            result = cursor.fetchone()
+
+            if not result:
+                return jsonify({"message": "Seminar not found"}), 404
+
+            # If seminar exists, delete it
+            sql_delete = "DELETE FROM seminers WHERE seminer_id = %s"
+            cursor.execute(sql_delete, (seminer_id,))
+            connection.commit()
+            return jsonify({"message": "Seminar deleted successfully"}), 200
+
+    except pymysql.MySQLError as e:
+        print(f"Database error: {e}")
+        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+    except Exception as e:
+        print(f"General error: {e}")
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()
