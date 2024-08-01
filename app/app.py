@@ -1397,3 +1397,302 @@ def fetch_seminers_last_two():
     finally:
         connection.close()        
 
+////////////////////////////////////////  RENEWED ROUTES FOR IMAGE VALIDATION TO SAVE BEST QUALITY IMAGE AS BLOB IN DATABASE /////////////////////////////////////////////////////////
+@app.route('/carousel_image_upload', methods=['POST'])
+def carousel_image_upload():
+    image_name = request.form.get('image_name')
+    carousel_image = request.form.get('carousel_image')  # Now expecting base64 encoded string
+
+    if image_name and carousel_image:
+        try:
+            # Decode the base64 image
+            header, image_data = carousel_image.split(',', 1)
+            mime_type = header.split(';')[0].split(':')[1]
+            if mime_type not in ['image/jpeg', 'image/png', 'image/jpg']:
+                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
+
+            carousel_image_data = base64.b64decode(image_data)
+
+            # Resize image to be under 60KB
+            image = Image.open(io.BytesIO(carousel_image_data))
+            image_format = image.format  # Get original image format
+
+            # Define function to resize the image while maintaining quality
+            def resize_image(image, max_size_kib):
+                output_io = io.BytesIO()
+                quality = 95  # Start with high quality
+                while True:
+                    output_io.seek(0)
+                    image.save(output_io, format=image_format, quality=quality)
+                    size = output_io.tell()
+                    if size <= max_size_kib * 1024 or quality <= 5:
+                        break
+                    quality -= 5
+                output_io.seek(0)
+                return output_io
+
+            resized_image_io = resize_image(image, 60)
+            resized_image_data = resized_image_io.read()
+
+            filename = secure_filename(image_name)  # Use image_name as filename
+
+            # Connect to the database
+            connection = pymysql.connect(**db_config)
+
+            try:
+                with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+                    sql_insert_carousel_image = '''
+                    INSERT INTO carousel_images (image_name, carousel_image, status)
+                    VALUES (%s, %s, %s)
+                    '''
+                    cursor.execute(sql_insert_carousel_image, (image_name, resized_image_data, False))
+
+                # Commit changes
+                connection.commit()
+
+                return jsonify({"message": "Post successful"}), 200
+
+            except Exception as e:
+                print(f"Error processing request: {str(e)}")
+                return jsonify({"message": "An error occurred. Please try again."}), 500
+
+            finally:
+                connection.close()
+        
+        except Exception as e:
+            print(f"Error processing request: {str(e)}")
+            return jsonify({"message": "An error occurred. Please try again."}), 500
+
+    return jsonify({"message": "User not authenticated or request processing failed."}), 401
+
+
+@app.route('/seminer_upload', methods=['POST'])
+def seminer_upload():
+    data = request.get_json()
+    seminer_date = data.get('seminer_date')
+    seminer_name = data.get('seminer_name')
+    seminer_details = data.get('seminer_details')
+    seminer_image = data.get('seminer_image')
+    status = False  # Default status
+
+    if seminer_date and seminer_name and seminer_details and seminer_image:
+        try:
+            # Check if the base64 string starts with the data URL scheme
+            if not seminer_image.startswith('data:image/'):
+                return jsonify({"message": "Invalid image format."}), 400
+
+            # Extract the MIME type and base64 data
+            header, image_data = seminer_image.split(',', 1)
+            mime_type = header.split(';')[0].split(':')[1]
+            if mime_type not in ['image/jpeg', 'image/png', 'image/jpg']:
+                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
+
+            # Decode base64 image
+            seminer_image_data = base64.b64decode(image_data)
+
+            # Resize image to be under 60KB
+            image = Image.open(io.BytesIO(seminer_image_data))
+            image_format = image.format
+
+            def resize_image(image, max_size_kib):
+                output_io = io.BytesIO()
+                quality = 95
+                while True:
+                    output_io.seek(0)
+                    image.save(output_io, format=image_format, quality=quality)
+                    size = output_io.tell()
+                    if size <= max_size_kib * 1024 or quality <= 5:
+                        break
+                    quality -= 5
+                output_io.seek(0)
+                return output_io
+
+            resized_image_io = resize_image(image, 60)
+            resized_image_data = resized_image_io.read()
+
+            # Connect to the database
+            connection = pymysql.connect(**db_config)
+
+            try:
+                with connection.cursor() as cursor:
+                    sql_insert_seminer = '''
+                    INSERT INTO seminers (seminer_date, seminer_name, seminer_details, seminer_image, status, created_at)
+                    VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    '''
+                    cursor.execute(sql_insert_seminer, (seminer_date, seminer_name, seminer_details, resized_image_data, status))
+
+                # Commit changes
+                connection.commit()
+                return jsonify({"message": "Seminar upload successful"}), 200
+
+            except pymysql.MySQLError as e:
+                print(f"Database error: {e}")
+                return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+
+            except Exception as e:
+                print(f"Error processing request: {str(e)}")
+                return jsonify({"message": "An error occurred. Please try again."}), 500
+
+            finally:
+                connection.close()
+
+        except Exception as e:
+            print(f"Error processing request: {str(e)}")
+            return jsonify({"message": "An error occurred. Please try again."}), 500
+
+    return jsonify({"message": "Invalid input or request processing failed."}), 400
+
+
+@app.route('/success_story_upload', methods=['POST'])
+def success_story_upload():
+    data = request.get_json()
+    success_link = data.get('success_link')
+    success_title = data.get('success_title')
+    success_details = data.get('success_details')
+    success_image = data.get('success_image')
+    
+    if success_link and success_title and success_details and success_image:
+        try:
+            # Check if the base64 string starts with the data URL scheme
+            if not success_image.startswith('data:image/'):
+                return jsonify({"message": "Invalid image format."}), 400
+
+            # Extract the MIME type and base64 data
+            header, image_data = success_image.split(',', 1)
+            mime_type = header.split(';')[0].split(':')[1]
+            if mime_type not in ['image/jpeg', 'image/png', 'image/jpg']:
+                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
+
+            # Decode base64 image
+            success_image_data = base64.b64decode(image_data)
+
+            # Resize image to be under 60KB
+            image = Image.open(io.BytesIO(success_image_data))
+            image_format = image.format  # Get original image format
+
+            # Define function to resize the image while maintaining quality
+            def resize_image(image, max_size_kib):
+                output_io = io.BytesIO()
+                quality = 95  # Start with high quality
+                while True:
+                    output_io.seek(0)
+                    image.save(output_io, format=image_format, quality=quality)
+                    size = output_io.tell()
+                    if size <= max_size_kib * 1024 or quality <= 5:
+                        break
+                    quality -= 5
+                output_io.seek(0)
+                return output_io
+
+            resized_image_io = resize_image(image, 60)
+            resized_image_data = resized_image_io.read()
+
+            # Connect to the database
+            connection = pymysql.connect(**db_config)
+
+            try:
+                with connection.cursor() as cursor:
+                    sql_insert_success_story = '''
+                    INSERT INTO success_stories (success_link, success_title, success_details, success_image, created_at)
+                    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    '''
+                    cursor.execute(sql_insert_success_story, (success_link, success_title, success_details, resized_image_data))
+
+                # Commit changes
+                connection.commit()
+
+                return jsonify({"message": "Success story upload successful"}), 200
+
+            except pymysql.MySQLError as e:
+                print(f"Database error: {e}")
+                return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+
+            except Exception as e:
+                print(f"Error processing request: {str(e)}")
+                return jsonify({"message": "An error occurred. Please try again."}), 500
+
+            finally:
+                connection.close()
+
+        except Exception as e:
+            print(f"Error processing request: {str(e)}")
+            return jsonify({"message": "An error occurred. Please try again."}), 500
+
+    return jsonify({"message": "Invalid input or request processing failed."}), 400
+
+
+
+@app.route('/admin_blog_upload', methods=['POST'])
+def admin_blog_upload():
+    data = request.get_json()
+    
+    # Debugging print statements
+    print("Received data:", data)
+
+    admin_blog_writer = data.get('admin_blog_writer')
+    admin_blog_headline = data.get('admin_blog_headline')
+    admin_blog_details = data.get('admin_blog_details')
+    admin_blog_image = data.get('admin_blog_image')
+    
+    if admin_blog_writer and admin_blog_headline and admin_blog_details and admin_blog_image:
+        try:
+            if not admin_blog_image.startswith('data:image/'):
+                return jsonify({"message": "Invalid image format."}), 400
+
+            header, image_data = admin_blog_image.split(',', 1)
+            mime_type = header.split(';')[0].split(':')[1]
+            if mime_type not in ['image/jpeg', 'image/png', 'image/jpg']:
+                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
+
+            admin_blog_image_data = base64.b64decode(image_data)
+
+            image = Image.open(io.BytesIO(admin_blog_image_data))
+            image_format = image.format
+
+            def resize_image(image, max_size_kib):
+                output_io = io.BytesIO()
+                quality = 95
+                while True:
+                    output_io.seek(0)
+                    image.save(output_io, format=image_format, quality=quality)
+                    size = output_io.tell()
+                    if size <= max_size_kib * 1024 or quality <= 5:
+                        break
+                    quality -= 5
+                output_io.seek(0)
+                return output_io
+
+            resized_image_io = resize_image(image, 60)
+            resized_image_data = resized_image_io.read()
+
+            connection = pymysql.connect(**db_config)
+
+            try:
+                with connection.cursor() as cursor:
+                    sql_insert_blog = '''
+                    INSERT INTO admin_blog (admin_blog_writer, admin_blog_headline, admin_blog_details, admin_blog_image, created_at)
+                    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    '''
+                    cursor.execute(sql_insert_blog, (admin_blog_writer, admin_blog_headline, admin_blog_details, resized_image_data))
+
+                connection.commit()
+
+                return jsonify({"message": "Admin blog upload successful"}), 200
+
+            except pymysql.MySQLError as e:
+                print(f"Database error: {e}")
+                return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+
+            except Exception as e:
+                print(f"Error processing request: {str(e)}")
+                return jsonify({"message": "An error occurred. Please try again."}), 500
+
+            finally:
+                connection.close()
+
+        except Exception as e:
+            print(f"Error processing request: {str(e)}")
+            return jsonify({"message": "An error occurred. Please try again."}), 500
+
+    return jsonify({"message": "Invalid input or request processing failed."}), 400
+
