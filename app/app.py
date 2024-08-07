@@ -1696,3 +1696,58 @@ def admin_blog_upload():
 
     return jsonify({"message": "Invalid input or request processing failed."}), 400
 
+
+###################################################################################################################################################################################
+############################################################# L I K E  ############################################################################################################
+
+@app.route('/toggle_like/<int:blog_id>', methods=['POST'])
+def toggle_like(blog_id):
+    if 'email' not in session:
+        return jsonify({"message": "User not logged in"}), 403
+
+    user_email = session['email']
+    
+    try:
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # Fetch the current like count and emails_liked
+            sql_select = "SELECT `like`, `emails_liked` FROM user_blog WHERE blog_id = %s"
+            cursor.execute(sql_select, (blog_id,))
+            blog = cursor.fetchone()
+
+            if blog is None:
+                return jsonify({"message": "Blog post not found"}), 404
+
+            like_count = blog['like']
+            emails_liked = blog['emails_liked']
+
+            if emails_liked is None:
+                emails_liked = ''
+            emails_liked_list = emails_liked.split(',')
+
+            if user_email in emails_liked_list:
+                # Unlike the post
+                like_count -= 1
+                emails_liked_list.remove(user_email)
+            else:
+                # Like the post
+                like_count += 1
+                emails_liked_list.append(user_email)
+
+            updated_emails_liked = ','.join(emails_liked_list)
+
+            # Update the database
+            sql_update = "UPDATE user_blog SET `like` = %s, `emails_liked` = %s WHERE blog_id = %s"
+            cursor.execute(sql_update, (like_count, updated_emails_liked, blog_id))
+        
+        connection.commit()
+        return jsonify({"message": "Like status toggled successfully", "like_count": like_count}), 200
+
+    except pymysql.MySQLError as e:
+        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+    except Exception as e:
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close() 
+
+
