@@ -1698,56 +1698,58 @@ def admin_blog_upload():
 
 
 ###################################################################################################################################################################################
-############################################################# L I K E  ############################################################################################################
+
+########################################################################### L I K E   A   P O S T #################################################################################
 
 @app.route('/toggle_like/<int:blog_id>', methods=['POST'])
 def toggle_like(blog_id):
-    if 'email' not in session:
-        return jsonify({"message": "User not logged in"}), 403
+    if 'user_email' not in session:
+        return jsonify({"message": "User not logged in"}), 401
 
-    user_email = session['email']
-    
+    user_email = session.get('user_email')
+    if not user_email:
+        return jsonify({"message": "User email not found in session"}), 401
+
     try:
         connection = pymysql.connect(**db_config)
         with connection.cursor() as cursor:
-            # Fetch the current like count and emails_liked
+            # Check if the blog post exists and get current like count
             sql_select = "SELECT `like`, `emails_liked` FROM user_blog WHERE blog_id = %s"
             cursor.execute(sql_select, (blog_id,))
             blog = cursor.fetchone()
 
-            if blog is None:
+            if not blog:
                 return jsonify({"message": "Blog post not found"}), 404
 
-            like_count = blog['like']
-            emails_liked = blog['emails_liked']
-
-            if emails_liked is None:
-                emails_liked = ''
-            emails_liked_list = emails_liked.split(',')
+            like_count = blog['like'] if blog['like'] is not None else 0
+            emails_liked = blog['emails_liked'] or ''
+            emails_liked_list = emails_liked.split(',') if emails_liked else []
 
             if user_email in emails_liked_list:
-                # Unlike the post
-                like_count -= 1
+                like_count = max(0, like_count - 1)  # Ensure like_count doesn't go below 0
                 emails_liked_list.remove(user_email)
+                action = 'unliked'
             else:
-                # Like the post
                 like_count += 1
                 emails_liked_list.append(user_email)
+                action = 'liked'
 
-            updated_emails_liked = ','.join(emails_liked_list)
+            updated_emails_liked = ','.join(filter(None, emails_liked_list))
 
-            # Update the database
+            # Update the blog post with new like count and emails_liked
             sql_update = "UPDATE user_blog SET `like` = %s, `emails_liked` = %s WHERE blog_id = %s"
             cursor.execute(sql_update, (like_count, updated_emails_liked, blog_id))
-        
-        connection.commit()
-        return jsonify({"message": "Like status toggled successfully", "like_count": like_count}), 200
 
-    except pymysql.MySQLError as e:
-        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+        connection.commit()
+        return jsonify({
+            "message": "Like toggled successfully",
+            "like_count": like_count,
+            "action": action
+        }), 200
     except Exception as e:
-        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+        return jsonify({"message": f"An error occurred: {str(e)}"}), 500
     finally:
-        connection.close() 
+        if connection:
+            connection.close()
 
 
