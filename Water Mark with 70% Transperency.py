@@ -70,3 +70,57 @@ def upload_portfolio():
             return jsonify({'error': f"Request error: {str(e)}"}), 500
 
     return jsonify({'error': 'Invalid request method.'}), 405
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+EXPLANATION
+
+Let's break down how the watermark transparency is adjusted in the `Pillow` library (PIL) using the code:
+
+### Understanding the Code
+
+```python
+# Get the alpha channel from the watermark image
+watermark_alpha = watermark.split()[3]
+# Adjust the opacity to 30% (70% transparent)
+watermark_alpha = watermark_alpha.point(lambda p: int(p * 0.3))
+# Apply the adjusted alpha channel back to the watermark
+watermark.putalpha(watermark_alpha)
+```
+
+### Detailed Explanation
+
+1. **Extract the Alpha Channel:**
+
+   ```python
+   watermark_alpha = watermark.split()[3]
+   ```
+   
+   - **`watermark.split()`**: The `split()` method splits the image into its constituent bands. For an RGBA image, this returns a list with four items: the red, green, blue, and alpha (transparency) channels.
+   - **`watermark.split()[3]`**: This accesses the alpha channel, which represents the image's transparency. This channel contains the alpha values (0 to 255) for each pixel.
+
+2. **Adjust the Opacity:**
+
+   ```python
+   watermark_alpha = watermark_alpha.point(lambda p: int(p * 0.3))
+   ```
+   
+   - **`watermark_alpha.point(lambda p: int(p * 0.3))`**: The `point()` method applies a function to each pixel value in the alpha channel.
+     - **`lambda p: int(p * 0.3)`**: This lambda function takes each pixel value (`p`), multiplies it by `0.3`, and converts it to an integer.
+       - **`p * 0.3`**: Adjusts the transparency. If the original alpha value is 255 (fully opaque), it becomes `255 * 0.3 = 76.5`, which is rounded to 76 (partially transparent). This sets the opacity of the watermark to 30% (70% transparent).
+
+3. **Apply the Adjusted Alpha Channel:**
+
+   ```python
+   watermark.putalpha(watermark_alpha)
+   ```
+   
+   - **`watermark.putalpha(watermark_alpha)`**: This method applies the adjusted alpha channel back to the watermark image. Now the watermark has the desired level of transparency.
+
+### Summary
+
+- **Extract the Alpha Channel**: You access the alpha (transparency) channel of the watermark image.
+- **Adjust Transparency**: Modify the alpha channel values to change the transparency level.
+- **Apply Changes**: Set the modified alpha channel back to the watermark image.
+
+This approach allows you to control how visible the watermark is on the base image by adjusting its transparency level. The transparency level can be set according to your needs by changing the multiplication factor (`0.3` in this case) to other values.
