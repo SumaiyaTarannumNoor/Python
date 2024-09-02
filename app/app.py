@@ -1753,3 +1753,96 @@ def toggle_like(blog_id):
             connection.close()
 
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////// A D D I N G   C O M M E N T S ///////////////////////////////////////////////////////////////////////////////////////////////
+
+@app.route('/add_comment/<int:blog_id>', methods=['POST', 'GET'])
+def add_comment(blog_id):
+    if 'user_email' not in session:
+        return jsonify({"message": "User not logged in"}), 401 
+
+    user_email = session.get('user_email')
+
+    if request.method == 'POST':
+        data = request.get_json()
+        comment = data.get('comment')
+
+        if not user_email or not comment:
+            return jsonify({"message": "User email or comment not found in request"}), 400
+
+        try:
+            connection = pymysql.connect(**db_config)
+            with connection.cursor() as cursor:
+                sql_select_user = "SELECT Full_name FROM student_signup WHERE Email = %s"
+                cursor.execute(sql_select_user, (user_email,))
+                user = cursor.fetchone()
+
+                if not user:
+                    return jsonify({"message": "User not found"}), 404
+
+                full_name = user['Full_name']
+
+                sql_select_blog = "SELECT comment, emails_commented, user_comment FROM user_blog WHERE blog_id = %s"
+                cursor.execute(sql_select_blog, (blog_id,))
+                blog = cursor.fetchone()
+
+                if not blog:
+                    return jsonify({"message": "Blog post not found"}), 404
+
+                comments_count = blog['comment'] if blog['comment'] is not None else 0
+                emails_commented = blog['emails_commented'] or ''
+                user_comment = blog['user_comment'] or ''
+
+                comments_count += 1
+                updated_emails_commented = f"{emails_commented},{user_email}" if emails_commented else user_email
+
+                import time
+                unique_key = f"{full_name}_{int(time.time())}"
+                new_comment_entry = f"{unique_key}:{comment}"
+                updated_user_comment = f"{user_comment},{new_comment_entry}" if user_comment else new_comment_entry
+
+                sql_update = """
+                    UPDATE user_blog
+                    SET comment = %s,
+                        emails_commented = %s,
+                        user_comment = %s
+                    WHERE blog_id = %s
+                """
+                cursor.execute(sql_update, (comments_count, updated_emails_commented, updated_user_comment, blog_id))
+
+            connection.commit()
+            return jsonify({
+                "message": "Comment added successfully",
+                "comment_count": comments_count
+            }), 200
+        except Exception as e:
+            return jsonify({"message": f"An error occurred: {str(e)}"}), 500
+        finally:
+            if connection:
+                connection.close()
+
+    elif request.method == 'GET':
+        try:
+            connection = pymysql.connect(**db_config)
+            with connection.cursor() as cursor:
+                sql_select_blog = "SELECT comment FROM user_blog WHERE blog_id = %s"
+                cursor.execute(sql_select_blog, (blog_id,))
+                blog = cursor.fetchone()
+
+                if not blog:
+                    return jsonify({"message": "Blog post not found"}), 404
+
+                comments_count = blog['comment'] if blog['comment'] is not None else 0
+
+            connection.commit()
+            return jsonify({
+                "comments_count": comments_count
+            }), 200
+        except Exception as e:
+            return jsonify({"message": f"An error occurred: {str(e)}"}), 500
+        finally:
+            if connection:
+                connection.close()
+
+
