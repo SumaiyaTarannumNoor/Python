@@ -1864,7 +1864,7 @@ def add_comment(blog_id):
 
                 full_name = user['Full_name']
 
-                sql_select_blog = "SELECT comment, emails_commented, user_comment FROM user_blog WHERE blog_id = %s"
+                sql_select_blog = "SELECT comment, emails_commented, user_comments FROM user_blog WHERE blog_id = %s"
                 cursor.execute(sql_select_blog, (blog_id,))
                 blog = cursor.fetchone()
 
@@ -1873,7 +1873,7 @@ def add_comment(blog_id):
 
                 comments_count = blog['comment'] if blog['comment'] is not None else 0
                 emails_commented = blog['emails_commented'] or ''
-                user_comment = blog['user_comment'] or ''
+                user_comments = blog['user_comments'] or ''
 
                 comments_count += 1
                 updated_emails_commented = f"{emails_commented},{user_email}" if emails_commented else user_email
@@ -1881,16 +1881,16 @@ def add_comment(blog_id):
                 import time
                 unique_key = f"{full_name}_{int(time.time())}"
                 new_comment_entry = f"{unique_key}:{comment}"
-                updated_user_comment = f"{user_comment},{new_comment_entry}" if user_comment else new_comment_entry
+                updated_user_comments = f"{user_comments},{new_comment_entry}" if user_comments else new_comment_entry
 
                 sql_update = """
                     UPDATE user_blog
                     SET comment = %s,
                         emails_commented = %s,
-                        user_comment = %s
+                        user_comments = %s
                     WHERE blog_id = %s
                 """
-                cursor.execute(sql_update, (comments_count, updated_emails_commented, updated_user_comment, blog_id))
+                cursor.execute(sql_update, (comments_count, updated_emails_commented, updated_user_comments, blog_id))
 
             connection.commit()
             return jsonify({
