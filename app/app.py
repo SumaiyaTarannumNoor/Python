@@ -1879,7 +1879,8 @@ def add_comment(blog_id):
                 updated_emails_commented = f"{emails_commented},{user_email}" if emails_commented else user_email
 
                 import time
-                unique_key = f"{full_name}_{int(time.time())}"
+                # unique_key = f"{full_name}_{int(time.time())}"
+                unique_key = f"{user_email}"
                 new_comment_entry = f"{unique_key}:{comment}"
                 updated_user_comments = f"{user_comments},{new_comment_entry}" if user_comments else new_comment_entry
 
