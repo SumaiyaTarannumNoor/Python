@@ -1927,3 +1927,50 @@ def add_comment(blog_id):
                 connection.close()
 
 
+@app.route('/all_comments/<int:blog_id>', methods=['GET'])
+def all_comments(blog_id):
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            # Fetch all user comments for the specific blog_id
+            cursor.execute("SELECT user_comment FROM user_blog WHERE blog_id = %s", (blog_id,))
+            user_comments = cursor.fetchall()
+            
+            all_comments_data = []
+            
+            # Iterate through each entry in user_comments
+            for comment in user_comments:
+                # Split the comment into individual email-comment pairs
+                comments = comment['user_comment'].split(',')
+                
+                for each_comment in comments:
+                    # Split the email and comment
+                    if ':' in each_comment:
+                        email, user_comment = each_comment.split(':', 1)
+                        
+                        # Fetch the user's Full_name and Image based on the email
+                        cursor.execute(
+                            "SELECT Full_name, Image FROM student_signup WHERE Email = %s",
+                            (email,)
+                        )
+                        user_data = cursor.fetchone()
+                        
+                        if user_data:
+                            # Decode the image from base64 if necessary
+                            user_data['Image'] = base64.b64encode(user_data['Image']).decode('utf-8') if user_data['Image'] else None
+                            
+                            # Prepare the final comment data
+                            comment_data = {
+                                'Email': email,
+                                'Full_name': user_data['Full_name'],
+                                'Image': user_data['Image'],
+                                'Comment': user_comment.strip()  # Strip any leading/trailing spaces
+                            }
+                            all_comments_data.append(comment_data)
+        
+        return jsonify(all_comments_data)
+    
+    finally:
+        connection.close()
+
+
