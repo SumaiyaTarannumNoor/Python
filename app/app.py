@@ -1930,48 +1930,54 @@ def add_comment(blog_id):
 
 @app.route('/all_comments/<int:blog_id>', methods=['GET'])
 def all_comments(blog_id):
-    connection = get_db_connection()
     try:
-        with connection.cursor() as cursor:
-            # Fetch all user comments for the specific blog_id
-            cursor.execute("SELECT user_comment FROM user_blog WHERE blog_id = %s", (blog_id,))
+        connection = pymysql.connect(**db_config)
+        
+        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+            cursor.execute("SELECT user_comments FROM user_blog WHERE blog_id = %s", (blog_id,))
             user_comments = cursor.fetchall()
             
-            all_comments_data = []
+            print(f"Fetched comments for blog_id {blog_id}: {user_comments}")  # Log fetched comments
             
-            # Iterate through each entry in user_comments
+            # Check if there are no comments or if the 'user_comments' field is empty
+            if not user_comments or not user_comments[0]['user_comments']:
+                print(f"No comments found for blog_id {blog_id}")  # Log when no comments are found
+                return jsonify({"comments": []}), 200
+
+            all_comments_data = []
+
+            # Process each row in the fetched data
             for comment in user_comments:
-                # Split the comment into individual email-comment pairs
-                comments = comment['user_comment'].split(',')
-                
+                comments = comment['user_comments'].split(',')
+
                 for each_comment in comments:
-                    # Split the email and comment
                     if ':' in each_comment:
                         email, user_comment = each_comment.split(':', 1)
-                        
-                        # Fetch the user's Full_name and Image based on the email
-                        cursor.execute(
-                            "SELECT Full_name, Image FROM student_signup WHERE Email = %s",
-                            (email,)
-                        )
+
+                        cursor.execute("SELECT Full_name, Image FROM student_signup WHERE Email = %s", (email,))
                         user_data = cursor.fetchone()
-                        
+
                         if user_data:
-                            # Decode the image from base64 if necessary
                             user_data['Image'] = base64.b64encode(user_data['Image']).decode('utf-8') if user_data['Image'] else None
-                            
-                            # Prepare the final comment data
+
                             comment_data = {
                                 'Email': email,
                                 'Full_name': user_data['Full_name'],
                                 'Image': user_data['Image'],
-                                'Comment': user_comment.strip()  # Strip any leading/trailing spaces
+                                'Comment': user_comment.strip()
                             }
                             all_comments_data.append(comment_data)
-        
-        return jsonify(all_comments_data)
-    
+
+            print(f"Processed comments: {all_comments_data}")  # Log processed comments
+            return jsonify({"comments": all_comments_data})
+
+    except Exception as e:
+        print(f"Error in all_comments: {str(e)}")  # Log any errors
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
     finally:
-        connection.close()
+        if connection:
+            connection.close()
+
 
 
