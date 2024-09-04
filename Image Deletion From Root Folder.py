@@ -1,3 +1,5 @@
+# Integrated In https://ahmedul.com/
+
 # image will be deleted from root folder when edited or deleted
 
 @app.route('/delete_portfolio/<int:portfolio_id>', methods=['DELETE'])
