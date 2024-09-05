@@ -1,3 +1,974 @@
+########################################################################################################################################################################################
+
+################################################################ N   E   W        V   E   R   S   I   O   N ############################################################################
+
+############################################################# Integrated In - https://freelancingpathshala.com/   ######################################################################
+
+@app.route('/user_blog', methods=['POST'])
+def user_blog():
+    if 'logged_in' in session and session['logged_in']:
+        try:
+            # Get user's email from session
+            email = session['user_email']
+            
+            # Extract form data
+            emojiText = request.form.get('emojiText')
+            imageFile = request.files.get('imageFile')
+            
+            # Set image_data to None if not provided
+            image_data = None
+            if imageFile:
+                filename = secure_filename(imageFile.filename)
+                image_data = imageFile.read()
+            
+            # Connect to the database
+            connection = pymysql.connect(**db_config)
+            
+            try:
+                with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+                    # First, fetch user details from student_signup table
+                    sql_fetch_user = """
+                    SELECT Full_name, Image, Freelancing_Experience
+                    FROM student_signup
+                    WHERE Email = %s
+                    """
+                    cursor.execute(sql_fetch_user, (email,))
+                    user_data = cursor.fetchone()
+                    
+                    if not user_data:
+                        return jsonify({"message": "User not found"}), 404
+                    
+                    user_name = user_data['Full_name']
+                    user_image = user_data['Image']
+                    years_of_experience = user_data['Freelancing_Experience']
+                    
+                    # Now insert data into user_blog table
+                    sql_insert_blog = '''
+                    INSERT INTO user_blog (email, emojiText, imageFile, approve, user_name, user_image, years_of_experience)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    '''
+                    cursor.execute(sql_insert_blog, (email, emojiText, image_data, False, user_name, user_image, years_of_experience))
+                
+                # Commit changes
+                connection.commit()
+                
+                return jsonify({"message": "Post successful"}), 200
+                
+            finally:
+                connection.close()
+                
+        except Exception as e:
+            print(f"Error processing request: {str(e)}")
+            return jsonify({"message": "An error occurred. Please try again."}), 500
+    
+    return jsonify({"message": "User not authenticated or request processing failed."}), 401
+
+
+# For Recurrent Data
+# @app.route('/copy_to_trending', methods=['POST'])
+# def copy_to_trending():
+#     try:
+#         connection = pymysql.connect(**db_config)
+#         print("Database connection established.")
+#         with connection.cursor() as cursor:
+#             # First, get the IDs of the three most recent records in the latest table
+#             cursor.execute("SELECT latest_id FROM latest ORDER BY created_at DESC LIMIT 3")
+#             recent_ids = [row['latest_id'] for row in cursor.fetchall()]
+
+#             # Now, select all records from latest except the three most recent
+#             cursor.execute("""
+#                 SELECT latest_link, latest_title, latest_details, created_at
+#                 FROM latest
+#                 WHERE latest_id NOT IN (%s, %s, %s)
+#             """, tuple(recent_ids))
+#             records_to_copy = cursor.fetchall()
+
+#             # Insert these records into the trending table
+#             if records_to_copy:
+#                 cursor.executemany("""
+#                     INSERT INTO trending (trending_link, trending_title, trending_details, created_at)
+#                     VALUES (%s, %s, %s, %s)
+#                 """, [(row['latest_link'], row['latest_title'], row['latest_details'], row['created_at']) for row in records_to_copy])
+
+#                 connection.commit()
+#                 return jsonify({
+#                     "message": f"Successfully copied {len(records_to_copy)} records to trending table.",
+#                     "copied_count": len(records_to_copy)
+#                 }), 200
+#             else:
+#                 return jsonify({"message": "No records to copy."}), 200
+
+#     except pymysql.MySQLError as e:
+#         print(f"MySQL error: {str(e)}")
+#         connection.rollback()
+#         return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+#     except Exception as e:
+#         print(f"Error: {str(e)}")
+#         connection.rollback()
+#         return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+#     finally:
+#         connection.close()
+
+
+# For All time new update
+@app.route('/copy_to_trending', methods=['POST'])
+def copy_to_trending():
+    try:
+        connection = pymysql.connect(**db_config)
+        print("Database connection established.")
+        with connection.cursor() as cursor:
+            # First, get the IDs of the three most recent records in the latest table
+            cursor.execute("SELECT latest_id FROM latest ORDER BY created_at DESC LIMIT 3")
+            recent_ids = [row['latest_id'] for row in cursor.fetchall()]
+
+            # Now, select all records from latest except the three most recent
+            cursor.execute("""
+                SELECT latest_link, latest_title, latest_details, created_at
+                FROM latest
+                WHERE latest_id NOT IN (%s, %s, %s)
+            """, tuple(recent_ids))
+            records_to_copy = cursor.fetchall()
+
+            # Clear the trending table
+            cursor.execute("DELETE FROM trending")
+
+            # Insert these records into the trending table
+            if records_to_copy:
+                cursor.executemany("""
+                    INSERT INTO trending (trending_link, trending_title, trending_details, created_at)
+                    VALUES (%s, %s, %s, %s)
+                """, [(row['latest_link'], row['latest_title'], row['latest_details'], row['created_at']) for row in records_to_copy])
+
+                connection.commit()
+                return jsonify({
+                    "message": f"Successfully copied {len(records_to_copy)} records to trending table.",
+                    "copied_count": len(records_to_copy)
+                }), 200
+            else:
+                return jsonify({"message": "No records to copy."}), 200
+
+    except pymysql.MySQLError as e:
+        print(f"MySQL error: {str(e)}")
+        connection.rollback()
+        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        connection.rollback()
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()
+
+/////////////////////////////////////////// ADMIN PANEL /////////////////////////////////////////////////////////////////
+
+@app.route('/seminer_upload', methods=['POST'])
+def seminer_upload():
+    data = request.get_json()
+    seminer_date = data.get('seminer_date')
+    seminer_name = data.get('seminer_name')
+    seminer_details = data.get('seminer_details')
+    seminer_image = data.get('seminer_image')
+    status = False  # Default status
+
+    if seminer_date and seminer_name and seminer_details and seminer_image:
+        try:
+            # Check if the base64 string starts with the data URL scheme
+            if not seminer_image.startswith('data:image/'):
+                return jsonify({"message": "Invalid image format."}), 400
+
+            # Extract the MIME type and base64 data
+            header, image_data = seminer_image.split(',', 1)
+            mime_type = header.split(';')[0].split(':')[1]
+            if mime_type not in ['image/jpeg', 'image/png', 'image/jpg']:
+                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
+
+            # Decode base64 image
+            seminer_image_data = base64.b64decode(image_data)
+
+            # Connect to the database
+            connection = pymysql.connect(**db_config)
+
+            try:
+                with connection.cursor() as cursor:
+                    sql_insert_seminer = '''
+                    INSERT INTO seminers (seminer_date, seminer_name, seminer_details, seminer_image, status, created_at)
+                    VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    '''
+                    cursor.execute(sql_insert_seminer, (seminer_date, seminer_name, seminer_details, seminer_image_data, status))
+
+                # Commit changes
+                connection.commit()
+
+                return jsonify({"message": "Seminar upload successful"}), 200
+
+            except pymysql.MySQLError as e:
+                print(f"Database error: {e}")
+                return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+
+            except Exception as e:
+                print(f"Error processing request: {str(e)}")
+                return jsonify({"message": "An error occurred. Please try again."}), 500
+
+            finally:
+                connection.close()
+
+        except Exception as e:
+            print(f"Error processing request: {str(e)}")
+            return jsonify({"message": "An error occurred. Please try again."}), 500
+
+    return jsonify({"message": "Invalid input or request processing failed."}), 400
+
+
+
+
+
+@app.route('/fetch_seminers', methods=['GET'])
+def fetch_seminers():
+    try:
+        connection = pymysql.connect(**db_config)
+        
+        with connection.cursor() as cursor:
+            sql = "SELECT * FROM seminers ORDER BY created_at DESC"
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+
+            if rows:
+                seminers = []
+                for row in rows:
+                    # Encode image data as base64
+                    image_data = base64.b64encode(row['seminer_image']).decode('utf-8') if row['seminer_image'] else None
+                    seminers.append({
+                        'seminer_id': row['seminer_id'],
+                        'seminer_date': row['seminer_date'],
+                        'seminer_name': row['seminer_name'],
+                        'seminer_details': row['seminer_details'],
+                        'status': row['status'],
+                        'created_at': row['created_at'],
+                        'seminer_image': image_data
+                    })
+                return jsonify(seminers), 200
+            else:
+                return jsonify({"message": "No seminar records found"}), 404
+
+    except pymysql.MySQLError as e:
+        # Detailed error message
+        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+    except Exception as e:
+        # Detailed error message
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()
+
+@app.route('/fetch_seminer_image', methods=['GET'])
+def fetch_seminer_image():
+    try:
+        connection = pymysql.connect(**db_config)
+        
+        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+            sql = "SELECT seminer_image FROM seminers WHERE status = 1"
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+
+            if rows:
+                seminers = []
+                for row in rows:
+                    # Encode image data as base64
+                    image_data = base64.b64encode(row['seminer_image']).decode('utf-8') if row['seminer_image'] else None
+                    seminers.append({
+                        'seminer_image': image_data
+                    })
+                return jsonify(seminers), 200
+            else:
+                return jsonify({"message": "No seminar records found"}), 404
+
+    except pymysql.MySQLError as e:
+        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+    except Exception as e:
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()  
+
+@app.route('/update_seminar_status/<int:seminer_id>', methods=['POST'])
+def update_seminar_status(seminer_id):
+    print(f"Received request to update seminar with ID: {seminer_id}")
+    try:
+        data = request.get_json()
+        print(f"Request data: {data}")
+
+        new_status = data.get('status')
+        if new_status not in [0, 1]:
+            return jsonify({"message": "Invalid status value. Must be 0 or 1."}), 400
+
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            sql_update_status = "UPDATE seminers SET status = %s WHERE seminer_id = %s"
+            cursor.execute(sql_update_status, (new_status, seminer_id))
+        
+        connection.commit()
+        return jsonify({"message": "Status updated successfully"}), 200
+
+    except pymysql.MySQLError as e:
+        print(f"Database error: {e}")
+        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+    except Exception as e:
+        print(f"General error: {e}")
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()
+
+@app.route('/delete_seminar/<int:seminer_id>', methods=['DELETE'])
+def delete_seminar(seminer_id):
+    print(f"Received request to delete seminar with ID: {seminer_id}")
+    try:
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # First, check if the seminar exists
+            sql_check_existence = "SELECT * FROM seminers WHERE seminer_id = %s"
+            cursor.execute(sql_check_existence, (seminer_id,))
+            result = cursor.fetchone()
+
+            if not result:
+                return jsonify({"message": "Seminar not found"}), 404
+
+            # If seminar exists, delete it
+            sql_delete = "DELETE FROM seminers WHERE seminer_id = %s"
+            cursor.execute(sql_delete, (seminer_id,))
+            connection.commit()
+            return jsonify({"message": "Seminar deleted successfully"}), 200
+
+    except pymysql.MySQLError as e:
+        print(f"Database error: {e}")
+        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+    except Exception as e:
+        print(f"General error: {e}")
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()
+
+@app.route('/fetch_seminers_last_two', methods=['GET'])
+def fetch_seminers_last_two():
+    try:
+        connection = pymysql.connect(**db_config)
+        
+        with connection.cursor() as cursor:
+            sql = "SELECT * FROM seminers ORDER BY seminer_id DESC LIMIT 2"
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+
+            if rows:
+                seminers = []
+                for row in rows:
+                    seminers.append({
+                        'seminer_date': row['seminer_date'],
+                        'seminer_name': row['seminer_name'],
+                        'seminer_details': row['seminer_details'],
+                        'status': row['status'],
+                        'created_at': row['created_at'],
+                    })
+                return jsonify(seminers), 200
+            else:
+                return jsonify({"message": "No seminar records found"}), 404
+
+    except pymysql.MySQLError as e:
+        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+    except Exception as e:
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()        
+
+////////////////////////////////////////  RENEWED ROUTES FOR IMAGE VALIDATION TO SAVE BEST QUALITY IMAGE AS BLOB IN DATABASE /////////////////////////////////////////////////////////
+@app.route('/carousel_image_upload', methods=['POST'])
+def carousel_image_upload():
+    image_name = request.form.get('image_name')
+    carousel_image = request.form.get('carousel_image')  # Now expecting base64 encoded string
+
+    if image_name and carousel_image:
+        try:
+            # Decode the base64 image
+            header, image_data = carousel_image.split(',', 1)
+            mime_type = header.split(';')[0].split(':')[1]
+            if mime_type not in ['image/jpeg', 'image/png', 'image/jpg']:
+                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
+
+            carousel_image_data = base64.b64decode(image_data)
+
+            # Resize image to be under 60KB
+            image = Image.open(io.BytesIO(carousel_image_data))
+            image_format = image.format  # Get original image format
+
+            # Define function to resize the image while maintaining quality
+            def resize_image(image, max_size_kib):
+                output_io = io.BytesIO()
+                quality = 95  # Start with high quality
+                while True:
+                    output_io.seek(0)
+                    image.save(output_io, format=image_format, quality=quality)
+                    size = output_io.tell()
+                    if size <= max_size_kib * 1024 or quality <= 5:
+                        break
+                    quality -= 5
+                output_io.seek(0)
+                return output_io
+
+            resized_image_io = resize_image(image, 60)
+            resized_image_data = resized_image_io.read()
+
+            filename = secure_filename(image_name)  # Use image_name as filename
+
+            # Connect to the database
+            connection = pymysql.connect(**db_config)
+
+            try:
+                with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+                    sql_insert_carousel_image = '''
+                    INSERT INTO carousel_images (image_name, carousel_image, status)
+                    VALUES (%s, %s, %s)
+                    '''
+                    cursor.execute(sql_insert_carousel_image, (image_name, resized_image_data, False))
+
+                # Commit changes
+                connection.commit()
+
+                return jsonify({"message": "Post successful"}), 200
+
+            except Exception as e:
+                print(f"Error processing request: {str(e)}")
+                return jsonify({"message": "An error occurred. Please try again."}), 500
+
+            finally:
+                connection.close()
+        
+        except Exception as e:
+            print(f"Error processing request: {str(e)}")
+            return jsonify({"message": "An error occurred. Please try again."}), 500
+
+    return jsonify({"message": "User not authenticated or request processing failed."}), 401
+
+
+@app.route('/seminer_upload', methods=['POST'])
+def seminer_upload():
+    data = request.get_json()
+    seminer_date = data.get('seminer_date')
+    seminer_name = data.get('seminer_name')
+    seminer_details = data.get('seminer_details')
+    seminer_image = data.get('seminer_image')
+    status = False  # Default status
+
+    if seminer_date and seminer_name and seminer_details and seminer_image:
+        try:
+            # Check if the base64 string starts with the data URL scheme
+            if not seminer_image.startswith('data:image/'):
+                return jsonify({"message": "Invalid image format."}), 400
+
+            # Extract the MIME type and base64 data
+            header, image_data = seminer_image.split(',', 1)
+            mime_type = header.split(';')[0].split(':')[1]
+            if mime_type not in ['image/jpeg', 'image/png', 'image/jpg']:
+                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
+
+            # Decode base64 image
+            seminer_image_data = base64.b64decode(image_data)
+
+            # Resize image to be under 60KB
+            image = Image.open(io.BytesIO(seminer_image_data))
+            image_format = image.format
+
+            def resize_image(image, max_size_kib):
+                output_io = io.BytesIO()
+                quality = 95
+                while True:
+                    output_io.seek(0)
+                    image.save(output_io, format=image_format, quality=quality)
+                    size = output_io.tell()
+                    if size <= max_size_kib * 1024 or quality <= 5:
+                        break
+                    quality -= 5
+                output_io.seek(0)
+                return output_io
+
+            resized_image_io = resize_image(image, 60)
+            resized_image_data = resized_image_io.read()
+
+            # Connect to the database
+            connection = pymysql.connect(**db_config)
+
+            try:
+                with connection.cursor() as cursor:
+                    sql_insert_seminer = '''
+                    INSERT INTO seminers (seminer_date, seminer_name, seminer_details, seminer_image, status, created_at)
+                    VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    '''
+                    cursor.execute(sql_insert_seminer, (seminer_date, seminer_name, seminer_details, resized_image_data, status))
+
+                # Commit changes
+                connection.commit()
+                return jsonify({"message": "Seminar upload successful"}), 200
+
+            except pymysql.MySQLError as e:
+                print(f"Database error: {e}")
+                return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+
+            except Exception as e:
+                print(f"Error processing request: {str(e)}")
+                return jsonify({"message": "An error occurred. Please try again."}), 500
+
+            finally:
+                connection.close()
+
+        except Exception as e:
+            print(f"Error processing request: {str(e)}")
+            return jsonify({"message": "An error occurred. Please try again."}), 500
+
+    return jsonify({"message": "Invalid input or request processing failed."}), 400
+
+
+@app.route('/success_story_upload', methods=['POST'])
+def success_story_upload():
+    data = request.get_json()
+    success_link = data.get('success_link')
+    success_title = data.get('success_title')
+    success_details = data.get('success_details')
+    success_image = data.get('success_image')
+    
+    if success_link and success_title and success_details and success_image:
+        try:
+            # Check if the base64 string starts with the data URL scheme
+            if not success_image.startswith('data:image/'):
+                return jsonify({"message": "Invalid image format."}), 400
+
+            # Extract the MIME type and base64 data
+            header, image_data = success_image.split(',', 1)
+            mime_type = header.split(';')[0].split(':')[1]
+            if mime_type not in ['image/jpeg', 'image/png', 'image/jpg']:
+                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
+
+            # Decode base64 image
+            success_image_data = base64.b64decode(image_data)
+
+            # Resize image to be under 60KB
+            image = Image.open(io.BytesIO(success_image_data))
+            image_format = image.format  # Get original image format
+
+            # Define function to resize the image while maintaining quality
+            def resize_image(image, max_size_kib):
+                output_io = io.BytesIO()
+                quality = 95  # Start with high quality
+                while True:
+                    output_io.seek(0)
+                    image.save(output_io, format=image_format, quality=quality)
+                    size = output_io.tell()
+                    if size <= max_size_kib * 1024 or quality <= 5:
+                        break
+                    quality -= 5
+                output_io.seek(0)
+                return output_io
+
+            resized_image_io = resize_image(image, 60)
+            resized_image_data = resized_image_io.read()
+
+            # Connect to the database
+            connection = pymysql.connect(**db_config)
+
+            try:
+                with connection.cursor() as cursor:
+                    sql_insert_success_story = '''
+                    INSERT INTO success_stories (success_link, success_title, success_details, success_image, created_at)
+                    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    '''
+                    cursor.execute(sql_insert_success_story, (success_link, success_title, success_details, resized_image_data))
+
+                # Commit changes
+                connection.commit()
+
+                return jsonify({"message": "Success story upload successful"}), 200
+
+            except pymysql.MySQLError as e:
+                print(f"Database error: {e}")
+                return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+
+            except Exception as e:
+                print(f"Error processing request: {str(e)}")
+                return jsonify({"message": "An error occurred. Please try again."}), 500
+
+            finally:
+                connection.close()
+
+        except Exception as e:
+            print(f"Error processing request: {str(e)}")
+            return jsonify({"message": "An error occurred. Please try again."}), 500
+
+    return jsonify({"message": "Invalid input or request processing failed."}), 400
+
+
+
+@app.route('/admin_blog_upload', methods=['POST'])
+def admin_blog_upload():
+    data = request.get_json()
+    
+    # Debugging print statements
+    print("Received data:", data)
+
+    admin_blog_writer = data.get('admin_blog_writer')
+    admin_blog_headline = data.get('admin_blog_headline')
+    admin_blog_details = data.get('admin_blog_details')
+    admin_blog_image = data.get('admin_blog_image')
+    
+    if admin_blog_writer and admin_blog_headline and admin_blog_details and admin_blog_image:
+        try:
+            if not admin_blog_image.startswith('data:image/'):
+                return jsonify({"message": "Invalid image format."}), 400
+
+            header, image_data = admin_blog_image.split(',', 1)
+            mime_type = header.split(';')[0].split(':')[1]
+            if mime_type not in ['image/jpeg', 'image/png', 'image/jpg']:
+                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
+
+            admin_blog_image_data = base64.b64decode(image_data)
+
+            image = Image.open(io.BytesIO(admin_blog_image_data))
+            image_format = image.format
+
+            def resize_image(image, max_size_kib):
+                output_io = io.BytesIO()
+                quality = 95
+                while True:
+                    output_io.seek(0)
+                    image.save(output_io, format=image_format, quality=quality)
+                    size = output_io.tell()
+                    if size <= max_size_kib * 1024 or quality <= 5:
+                        break
+                    quality -= 5
+                output_io.seek(0)
+                return output_io
+
+            resized_image_io = resize_image(image, 60)
+            resized_image_data = resized_image_io.read()
+
+            connection = pymysql.connect(**db_config)
+
+            try:
+                with connection.cursor() as cursor:
+                    sql_insert_blog = '''
+                    INSERT INTO admin_blog (admin_blog_writer, admin_blog_headline, admin_blog_details, admin_blog_image, created_at)
+                    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    '''
+                    cursor.execute(sql_insert_blog, (admin_blog_writer, admin_blog_headline, admin_blog_details, resized_image_data))
+
+                connection.commit()
+
+                return jsonify({"message": "Admin blog upload successful"}), 200
+
+            except pymysql.MySQLError as e:
+                print(f"Database error: {e}")
+                return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+
+            except Exception as e:
+                print(f"Error processing request: {str(e)}")
+                return jsonify({"message": "An error occurred. Please try again."}), 500
+
+            finally:
+                connection.close()
+
+        except Exception as e:
+            print(f"Error processing request: {str(e)}")
+            return jsonify({"message": "An error occurred. Please try again."}), 500
+
+    return jsonify({"message": "Invalid input or request processing failed."}), 400
+
+
+###################################################################################################################################################################################
+
+########################################################################### L I K E   A   P O S T #################################################################################
+
+@app.route('/add_comment/<int:blog_id>', methods=['POST', 'GET'])
+def add_comment(blog_id):
+    if 'user_email' not in session:
+        return jsonify({"message": "User not logged in"}), 401 
+
+    user_email = session.get('user_email')
+
+    if request.method == 'POST':
+        data = request.get_json()
+        comment = data.get('comment')
+
+        if not user_email or not comment:
+            return jsonify({"message": "User email or comment not found in request"}), 400
+
+        try:
+            connection = pymysql.connect(**db_config)
+            with connection.cursor() as cursor:
+
+                sql_select_blog = "SELECT comment, emails_commented, user_comment FROM user_blog WHERE blog_id = %s"
+                cursor.execute(sql_select_blog, (blog_id,))
+                blog = cursor.fetchone()
+
+                if not blog:
+                    return jsonify({"message": "Blog post not found"}), 404
+
+                comments_count = blog['comment'] if blog['comment'] is not None else 0
+                emails_commented = blog['emails_commented'] or ''
+                user_comment = blog['user_comment'] or ''
+
+                comments_count += 1
+                updated_emails_commented = f"{emails_commented},{user_email}" if emails_commented else user_email
+
+                unique_key = user_email
+                new_comment_entry = f"{unique_key}:{comment}"
+                updated_user_comment = f"{user_comment},{new_comment_entry}" if user_comment else new_comment_entry
+
+                sql_update = """
+                    UPDATE user_blog
+                    SET comment = %s,
+                        emails_commented = %s,
+                        user_comment = %s
+                    WHERE blog_id = %s
+                """
+                cursor.execute(sql_update, (comments_count, updated_emails_commented, updated_user_comment, blog_id))
+
+            connection.commit()
+            return jsonify({
+                "message": "Comment added successfully",
+                "comment_count": comments_count
+            }), 200
+        except Exception as e:
+            return jsonify({"message": f"An error occurred: {str(e)}"}), 500
+        finally:
+            if connection:
+                connection.close()
+
+    elif request.method == 'GET':
+        try:
+            connection = pymysql.connect(**db_config)
+            with connection.cursor() as cursor:
+                sql_select_blog = "SELECT comment FROM user_blog WHERE blog_id = %s"
+                cursor.execute(sql_select_blog, (blog_id,))
+                blog = cursor.fetchone()
+
+                if not blog:
+                    return jsonify({"message": "Blog post not found"}), 404
+
+                comments_count = blog['comment'] if blog['comment'] is not None else 0
+
+            connection.commit()
+            return jsonify({
+                "comments_count": comments_count
+            }), 200
+        except Exception as e:
+            return jsonify({"message": f"An error occurred: {str(e)}"}), 500
+        finally:
+            if connection:
+                connection.close()
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+@app.route('/toggle_like/<int:blog_id>', methods=['POST'])
+def toggle_like(blog_id):
+    if 'user_email' not in session:
+        return jsonify({"message": "User not logged in"}), 401
+
+    user_email = session.get('user_email')
+    if not user_email:
+        return jsonify({"message": "User email not found in session"}), 401
+
+    try:
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # Check if the blog post exists and get current like count
+            sql_select = "SELECT `like`, `emails_liked` FROM user_blog WHERE blog_id = %s"
+            cursor.execute(sql_select, (blog_id,))
+            blog = cursor.fetchone()
+
+            if not blog:
+                return jsonify({"message": "Blog post not found"}), 404
+
+            like_count = blog['like'] if blog['like'] is not None else 0
+            emails_liked = blog['emails_liked'] or ''
+            emails_liked_list = emails_liked.split(',') if emails_liked else []
+
+            if user_email in emails_liked_list:
+                like_count = max(0, like_count - 1)  # Ensure like_count doesn't go below 0
+                emails_liked_list.remove(user_email)
+                action = 'unliked'
+            else:
+                like_count += 1
+                emails_liked_list.append(user_email)
+                action = 'liked'
+
+            updated_emails_liked = ','.join(filter(None, emails_liked_list))
+
+            # Update the blog post with new like count and emails_liked
+            sql_update = "UPDATE user_blog SET `like` = %s, `emails_liked` = %s WHERE blog_id = %s"
+            cursor.execute(sql_update, (like_count, updated_emails_liked, blog_id))
+
+        connection.commit()
+        return jsonify({
+            "message": "Like toggled successfully",
+            "like_count": like_count,
+            "action": action
+        }), 200
+    except Exception as e:
+        return jsonify({"message": f"An error occurred: {str(e)}"}), 500
+    finally:
+        if connection:
+            connection.close()
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////// A D D I N G   C O M M E N T S ///////////////////////////////////////////////////////////////////////////////////////////////
+
+@app.route('/add_comment/<int:blog_id>', methods=['POST', 'GET'])
+def add_comment(blog_id):
+    if 'user_email' not in session:
+        return jsonify({"message": "User not logged in"}), 401 
+
+    user_email = session.get('user_email')
+
+    if request.method == 'POST':
+        data = request.get_json()
+        comment = data.get('comment')
+
+        if not user_email or not comment:
+            return jsonify({"message": "User email or comment not found in request"}), 400
+
+        try:
+            connection = pymysql.connect(**db_config)
+            with connection.cursor() as cursor:
+                sql_select_user = "SELECT Full_name FROM student_signup WHERE Email = %s"
+                cursor.execute(sql_select_user, (user_email,))
+                user = cursor.fetchone()
+
+                if not user:
+                    return jsonify({"message": "User not found"}), 404
+
+                full_name = user['Full_name']
+
+                sql_select_blog = "SELECT comment, emails_commented, user_comments FROM user_blog WHERE blog_id = %s"
+                cursor.execute(sql_select_blog, (blog_id,))
+                blog = cursor.fetchone()
+
+                if not blog:
+                    return jsonify({"message": "Blog post not found"}), 404
+
+                comments_count = blog['comment'] if blog['comment'] is not None else 0
+                emails_commented = blog['emails_commented'] or ''
+                user_comments = blog['user_comments'] or ''
+
+                comments_count += 1
+                updated_emails_commented = f"{emails_commented},{user_email}" if emails_commented else user_email
+
+                import time
+                # unique_key = f"{full_name}_{int(time.time())}"
+                unique_key = f"{user_email}"
+                new_comment_entry = f"{unique_key}:{comment}"
+                updated_user_comments = f"{user_comments},{new_comment_entry}" if user_comments else new_comment_entry
+
+                sql_update = """
+                    UPDATE user_blog
+                    SET comment = %s,
+                        emails_commented = %s,
+                        user_comments = %s
+                    WHERE blog_id = %s
+                """
+                cursor.execute(sql_update, (comments_count, updated_emails_commented, updated_user_comments, blog_id))
+
+            connection.commit()
+            return jsonify({
+                "message": "Comment added successfully",
+                "comment_count": comments_count
+            }), 200
+        except Exception as e:
+            return jsonify({"message": f"An error occurred: {str(e)}"}), 500
+        finally:
+            if connection:
+                connection.close()
+
+    elif request.method == 'GET':
+        try:
+            connection = pymysql.connect(**db_config)
+            with connection.cursor() as cursor:
+                sql_select_blog = "SELECT comment FROM user_blog WHERE blog_id = %s"
+                cursor.execute(sql_select_blog, (blog_id,))
+                blog = cursor.fetchone()
+
+                if not blog:
+                    return jsonify({"message": "Blog post not found"}), 404
+
+                comments_count = blog['comment'] if blog['comment'] is not None else 0
+
+            connection.commit()
+            return jsonify({
+                "comments_count": comments_count
+            }), 200
+        except Exception as e:
+            return jsonify({"message": f"An error occurred: {str(e)}"}), 500
+        finally:
+            if connection:
+                connection.close()
+
+
+@app.route('/all_comments/<int:blog_id>', methods=['GET'])
+def all_comments(blog_id):
+    try:
+        connection = pymysql.connect(**db_config)
+        
+        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+            cursor.execute("SELECT user_comments FROM user_blog WHERE blog_id = %s", (blog_id,))
+            user_comments = cursor.fetchall()
+            
+            print(f"Fetched comments for blog_id {blog_id}: {user_comments}")  # Log fetched comments
+            
+            # Check if there are no comments or if the 'user_comments' field is empty
+            if not user_comments or not user_comments[0]['user_comments']:
+                print(f"No comments found for blog_id {blog_id}")  # Log when no comments are found
+                return jsonify({"comments": []}), 200
+
+            all_comments_data = []
+
+            # Process each row in the fetched data
+            for comment in user_comments:
+                comments = comment['user_comments'].split(',')
+
+                for each_comment in comments:
+                    if ':' in each_comment:
+                        email, user_comment = each_comment.split(':', 1)
+
+                        cursor.execute("SELECT Full_name, Image FROM student_signup WHERE Email = %s", (email,))
+                        user_data = cursor.fetchone()
+
+                        if user_data:
+                            user_data['Image'] = base64.b64encode(user_data['Image']).decode('utf-8') if user_data['Image'] else None
+
+                            comment_data = {
+                                'Email': email,
+                                'Full_name': user_data['Full_name'],
+                                'Image': user_data['Image'],
+                                'Comment': user_comment.strip()
+                            }
+                            all_comments_data.append(comment_data)
+
+            print(f"Processed comments: {all_comments_data}")  # Log processed comments
+            return jsonify({"comments": all_comments_data})
+
+    except Exception as e:
+        print(f"Error in all_comments: {str(e)}")  # Log any errors
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
+    finally:
+        if connection:
+            connection.close()
+
+
+
+
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////// O L D    V E R S I O N ////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 @app.route('/home')
 def home():
     if 'loggedin' in session and session['loggedin']:
@@ -1020,964 +1991,4 @@ def trainee_password_edit(trainee_id):
             return jsonify({'success': 'Trainee password updated successfully'}), 200
         except Exception as e:
             return jsonify({'error': f"Request error: {str(e)}"}), 500    
-
-########################################################################################################################################################################################
-
-################################################################ N   E   W        V   E   R   S   I   O   N ############################################################################
-
-
-@app.route('/user_blog', methods=['POST'])
-def user_blog():
-    if 'logged_in' in session and session['logged_in']:
-        try:
-            # Get user's email from session
-            email = session['user_email']
-            
-            # Extract form data
-            emojiText = request.form.get('emojiText')
-            imageFile = request.files.get('imageFile')
-            
-            # Set image_data to None if not provided
-            image_data = None
-            if imageFile:
-                filename = secure_filename(imageFile.filename)
-                image_data = imageFile.read()
-            
-            # Connect to the database
-            connection = pymysql.connect(**db_config)
-            
-            try:
-                with connection.cursor(pymysql.cursors.DictCursor) as cursor:
-                    # First, fetch user details from student_signup table
-                    sql_fetch_user = """
-                    SELECT Full_name, Image, Freelancing_Experience
-                    FROM student_signup
-                    WHERE Email = %s
-                    """
-                    cursor.execute(sql_fetch_user, (email,))
-                    user_data = cursor.fetchone()
-                    
-                    if not user_data:
-                        return jsonify({"message": "User not found"}), 404
-                    
-                    user_name = user_data['Full_name']
-                    user_image = user_data['Image']
-                    years_of_experience = user_data['Freelancing_Experience']
-                    
-                    # Now insert data into user_blog table
-                    sql_insert_blog = '''
-                    INSERT INTO user_blog (email, emojiText, imageFile, approve, user_name, user_image, years_of_experience)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    '''
-                    cursor.execute(sql_insert_blog, (email, emojiText, image_data, False, user_name, user_image, years_of_experience))
-                
-                # Commit changes
-                connection.commit()
-                
-                return jsonify({"message": "Post successful"}), 200
-                
-            finally:
-                connection.close()
-                
-        except Exception as e:
-            print(f"Error processing request: {str(e)}")
-            return jsonify({"message": "An error occurred. Please try again."}), 500
-    
-    return jsonify({"message": "User not authenticated or request processing failed."}), 401
-
-
-# For Recurrent Data
-# @app.route('/copy_to_trending', methods=['POST'])
-# def copy_to_trending():
-#     try:
-#         connection = pymysql.connect(**db_config)
-#         print("Database connection established.")
-#         with connection.cursor() as cursor:
-#             # First, get the IDs of the three most recent records in the latest table
-#             cursor.execute("SELECT latest_id FROM latest ORDER BY created_at DESC LIMIT 3")
-#             recent_ids = [row['latest_id'] for row in cursor.fetchall()]
-
-#             # Now, select all records from latest except the three most recent
-#             cursor.execute("""
-#                 SELECT latest_link, latest_title, latest_details, created_at
-#                 FROM latest
-#                 WHERE latest_id NOT IN (%s, %s, %s)
-#             """, tuple(recent_ids))
-#             records_to_copy = cursor.fetchall()
-
-#             # Insert these records into the trending table
-#             if records_to_copy:
-#                 cursor.executemany("""
-#                     INSERT INTO trending (trending_link, trending_title, trending_details, created_at)
-#                     VALUES (%s, %s, %s, %s)
-#                 """, [(row['latest_link'], row['latest_title'], row['latest_details'], row['created_at']) for row in records_to_copy])
-
-#                 connection.commit()
-#                 return jsonify({
-#                     "message": f"Successfully copied {len(records_to_copy)} records to trending table.",
-#                     "copied_count": len(records_to_copy)
-#                 }), 200
-#             else:
-#                 return jsonify({"message": "No records to copy."}), 200
-
-#     except pymysql.MySQLError as e:
-#         print(f"MySQL error: {str(e)}")
-#         connection.rollback()
-#         return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
-#     except Exception as e:
-#         print(f"Error: {str(e)}")
-#         connection.rollback()
-#         return jsonify({"message": "An error occurred!", "error": str(e)}), 500
-#     finally:
-#         connection.close()
-
-
-# For All time new update
-@app.route('/copy_to_trending', methods=['POST'])
-def copy_to_trending():
-    try:
-        connection = pymysql.connect(**db_config)
-        print("Database connection established.")
-        with connection.cursor() as cursor:
-            # First, get the IDs of the three most recent records in the latest table
-            cursor.execute("SELECT latest_id FROM latest ORDER BY created_at DESC LIMIT 3")
-            recent_ids = [row['latest_id'] for row in cursor.fetchall()]
-
-            # Now, select all records from latest except the three most recent
-            cursor.execute("""
-                SELECT latest_link, latest_title, latest_details, created_at
-                FROM latest
-                WHERE latest_id NOT IN (%s, %s, %s)
-            """, tuple(recent_ids))
-            records_to_copy = cursor.fetchall()
-
-            # Clear the trending table
-            cursor.execute("DELETE FROM trending")
-
-            # Insert these records into the trending table
-            if records_to_copy:
-                cursor.executemany("""
-                    INSERT INTO trending (trending_link, trending_title, trending_details, created_at)
-                    VALUES (%s, %s, %s, %s)
-                """, [(row['latest_link'], row['latest_title'], row['latest_details'], row['created_at']) for row in records_to_copy])
-
-                connection.commit()
-                return jsonify({
-                    "message": f"Successfully copied {len(records_to_copy)} records to trending table.",
-                    "copied_count": len(records_to_copy)
-                }), 200
-            else:
-                return jsonify({"message": "No records to copy."}), 200
-
-    except pymysql.MySQLError as e:
-        print(f"MySQL error: {str(e)}")
-        connection.rollback()
-        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        connection.rollback()
-        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
-    finally:
-        connection.close()
-
-/////////////////////////////////////////// ADMIN PANEL /////////////////////////////////////////////////////////////////
-
-@app.route('/seminer_upload', methods=['POST'])
-def seminer_upload():
-    data = request.get_json()
-    seminer_date = data.get('seminer_date')
-    seminer_name = data.get('seminer_name')
-    seminer_details = data.get('seminer_details')
-    seminer_image = data.get('seminer_image')
-    status = False  # Default status
-
-    if seminer_date and seminer_name and seminer_details and seminer_image:
-        try:
-            # Check if the base64 string starts with the data URL scheme
-            if not seminer_image.startswith('data:image/'):
-                return jsonify({"message": "Invalid image format."}), 400
-
-            # Extract the MIME type and base64 data
-            header, image_data = seminer_image.split(',', 1)
-            mime_type = header.split(';')[0].split(':')[1]
-            if mime_type not in ['image/jpeg', 'image/png', 'image/jpg']:
-                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
-
-            # Decode base64 image
-            seminer_image_data = base64.b64decode(image_data)
-
-            # Connect to the database
-            connection = pymysql.connect(**db_config)
-
-            try:
-                with connection.cursor() as cursor:
-                    sql_insert_seminer = '''
-                    INSERT INTO seminers (seminer_date, seminer_name, seminer_details, seminer_image, status, created_at)
-                    VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
-                    '''
-                    cursor.execute(sql_insert_seminer, (seminer_date, seminer_name, seminer_details, seminer_image_data, status))
-
-                # Commit changes
-                connection.commit()
-
-                return jsonify({"message": "Seminar upload successful"}), 200
-
-            except pymysql.MySQLError as e:
-                print(f"Database error: {e}")
-                return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
-
-            except Exception as e:
-                print(f"Error processing request: {str(e)}")
-                return jsonify({"message": "An error occurred. Please try again."}), 500
-
-            finally:
-                connection.close()
-
-        except Exception as e:
-            print(f"Error processing request: {str(e)}")
-            return jsonify({"message": "An error occurred. Please try again."}), 500
-
-    return jsonify({"message": "Invalid input or request processing failed."}), 400
-
-
-
-
-
-@app.route('/fetch_seminers', methods=['GET'])
-def fetch_seminers():
-    try:
-        connection = pymysql.connect(**db_config)
-        
-        with connection.cursor() as cursor:
-            sql = "SELECT * FROM seminers ORDER BY created_at DESC"
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-
-            if rows:
-                seminers = []
-                for row in rows:
-                    # Encode image data as base64
-                    image_data = base64.b64encode(row['seminer_image']).decode('utf-8') if row['seminer_image'] else None
-                    seminers.append({
-                        'seminer_id': row['seminer_id'],
-                        'seminer_date': row['seminer_date'],
-                        'seminer_name': row['seminer_name'],
-                        'seminer_details': row['seminer_details'],
-                        'status': row['status'],
-                        'created_at': row['created_at'],
-                        'seminer_image': image_data
-                    })
-                return jsonify(seminers), 200
-            else:
-                return jsonify({"message": "No seminar records found"}), 404
-
-    except pymysql.MySQLError as e:
-        # Detailed error message
-        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
-    except Exception as e:
-        # Detailed error message
-        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
-    finally:
-        connection.close()
-
-@app.route('/fetch_seminer_image', methods=['GET'])
-def fetch_seminer_image():
-    try:
-        connection = pymysql.connect(**db_config)
-        
-        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
-            sql = "SELECT seminer_image FROM seminers WHERE status = 1"
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-
-            if rows:
-                seminers = []
-                for row in rows:
-                    # Encode image data as base64
-                    image_data = base64.b64encode(row['seminer_image']).decode('utf-8') if row['seminer_image'] else None
-                    seminers.append({
-                        'seminer_image': image_data
-                    })
-                return jsonify(seminers), 200
-            else:
-                return jsonify({"message": "No seminar records found"}), 404
-
-    except pymysql.MySQLError as e:
-        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
-    except Exception as e:
-        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
-    finally:
-        connection.close()  
-
-@app.route('/update_seminar_status/<int:seminer_id>', methods=['POST'])
-def update_seminar_status(seminer_id):
-    print(f"Received request to update seminar with ID: {seminer_id}")
-    try:
-        data = request.get_json()
-        print(f"Request data: {data}")
-
-        new_status = data.get('status')
-        if new_status not in [0, 1]:
-            return jsonify({"message": "Invalid status value. Must be 0 or 1."}), 400
-
-        connection = pymysql.connect(**db_config)
-        with connection.cursor() as cursor:
-            sql_update_status = "UPDATE seminers SET status = %s WHERE seminer_id = %s"
-            cursor.execute(sql_update_status, (new_status, seminer_id))
-        
-        connection.commit()
-        return jsonify({"message": "Status updated successfully"}), 200
-
-    except pymysql.MySQLError as e:
-        print(f"Database error: {e}")
-        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
-    except Exception as e:
-        print(f"General error: {e}")
-        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
-    finally:
-        connection.close()
-
-@app.route('/delete_seminar/<int:seminer_id>', methods=['DELETE'])
-def delete_seminar(seminer_id):
-    print(f"Received request to delete seminar with ID: {seminer_id}")
-    try:
-        connection = pymysql.connect(**db_config)
-        with connection.cursor() as cursor:
-            # First, check if the seminar exists
-            sql_check_existence = "SELECT * FROM seminers WHERE seminer_id = %s"
-            cursor.execute(sql_check_existence, (seminer_id,))
-            result = cursor.fetchone()
-
-            if not result:
-                return jsonify({"message": "Seminar not found"}), 404
-
-            # If seminar exists, delete it
-            sql_delete = "DELETE FROM seminers WHERE seminer_id = %s"
-            cursor.execute(sql_delete, (seminer_id,))
-            connection.commit()
-            return jsonify({"message": "Seminar deleted successfully"}), 200
-
-    except pymysql.MySQLError as e:
-        print(f"Database error: {e}")
-        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
-    except Exception as e:
-        print(f"General error: {e}")
-        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
-    finally:
-        connection.close()
-
-@app.route('/fetch_seminers_last_two', methods=['GET'])
-def fetch_seminers_last_two():
-    try:
-        connection = pymysql.connect(**db_config)
-        
-        with connection.cursor() as cursor:
-            sql = "SELECT * FROM seminers ORDER BY seminer_id DESC LIMIT 2"
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-
-            if rows:
-                seminers = []
-                for row in rows:
-                    seminers.append({
-                        'seminer_date': row['seminer_date'],
-                        'seminer_name': row['seminer_name'],
-                        'seminer_details': row['seminer_details'],
-                        'status': row['status'],
-                        'created_at': row['created_at'],
-                    })
-                return jsonify(seminers), 200
-            else:
-                return jsonify({"message": "No seminar records found"}), 404
-
-    except pymysql.MySQLError as e:
-        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
-    except Exception as e:
-        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
-    finally:
-        connection.close()        
-
-////////////////////////////////////////  RENEWED ROUTES FOR IMAGE VALIDATION TO SAVE BEST QUALITY IMAGE AS BLOB IN DATABASE /////////////////////////////////////////////////////////
-@app.route('/carousel_image_upload', methods=['POST'])
-def carousel_image_upload():
-    image_name = request.form.get('image_name')
-    carousel_image = request.form.get('carousel_image')  # Now expecting base64 encoded string
-
-    if image_name and carousel_image:
-        try:
-            # Decode the base64 image
-            header, image_data = carousel_image.split(',', 1)
-            mime_type = header.split(';')[0].split(':')[1]
-            if mime_type not in ['image/jpeg', 'image/png', 'image/jpg']:
-                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
-
-            carousel_image_data = base64.b64decode(image_data)
-
-            # Resize image to be under 60KB
-            image = Image.open(io.BytesIO(carousel_image_data))
-            image_format = image.format  # Get original image format
-
-            # Define function to resize the image while maintaining quality
-            def resize_image(image, max_size_kib):
-                output_io = io.BytesIO()
-                quality = 95  # Start with high quality
-                while True:
-                    output_io.seek(0)
-                    image.save(output_io, format=image_format, quality=quality)
-                    size = output_io.tell()
-                    if size <= max_size_kib * 1024 or quality <= 5:
-                        break
-                    quality -= 5
-                output_io.seek(0)
-                return output_io
-
-            resized_image_io = resize_image(image, 60)
-            resized_image_data = resized_image_io.read()
-
-            filename = secure_filename(image_name)  # Use image_name as filename
-
-            # Connect to the database
-            connection = pymysql.connect(**db_config)
-
-            try:
-                with connection.cursor(pymysql.cursors.DictCursor) as cursor:
-                    sql_insert_carousel_image = '''
-                    INSERT INTO carousel_images (image_name, carousel_image, status)
-                    VALUES (%s, %s, %s)
-                    '''
-                    cursor.execute(sql_insert_carousel_image, (image_name, resized_image_data, False))
-
-                # Commit changes
-                connection.commit()
-
-                return jsonify({"message": "Post successful"}), 200
-
-            except Exception as e:
-                print(f"Error processing request: {str(e)}")
-                return jsonify({"message": "An error occurred. Please try again."}), 500
-
-            finally:
-                connection.close()
-        
-        except Exception as e:
-            print(f"Error processing request: {str(e)}")
-            return jsonify({"message": "An error occurred. Please try again."}), 500
-
-    return jsonify({"message": "User not authenticated or request processing failed."}), 401
-
-
-@app.route('/seminer_upload', methods=['POST'])
-def seminer_upload():
-    data = request.get_json()
-    seminer_date = data.get('seminer_date')
-    seminer_name = data.get('seminer_name')
-    seminer_details = data.get('seminer_details')
-    seminer_image = data.get('seminer_image')
-    status = False  # Default status
-
-    if seminer_date and seminer_name and seminer_details and seminer_image:
-        try:
-            # Check if the base64 string starts with the data URL scheme
-            if not seminer_image.startswith('data:image/'):
-                return jsonify({"message": "Invalid image format."}), 400
-
-            # Extract the MIME type and base64 data
-            header, image_data = seminer_image.split(',', 1)
-            mime_type = header.split(';')[0].split(':')[1]
-            if mime_type not in ['image/jpeg', 'image/png', 'image/jpg']:
-                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
-
-            # Decode base64 image
-            seminer_image_data = base64.b64decode(image_data)
-
-            # Resize image to be under 60KB
-            image = Image.open(io.BytesIO(seminer_image_data))
-            image_format = image.format
-
-            def resize_image(image, max_size_kib):
-                output_io = io.BytesIO()
-                quality = 95
-                while True:
-                    output_io.seek(0)
-                    image.save(output_io, format=image_format, quality=quality)
-                    size = output_io.tell()
-                    if size <= max_size_kib * 1024 or quality <= 5:
-                        break
-                    quality -= 5
-                output_io.seek(0)
-                return output_io
-
-            resized_image_io = resize_image(image, 60)
-            resized_image_data = resized_image_io.read()
-
-            # Connect to the database
-            connection = pymysql.connect(**db_config)
-
-            try:
-                with connection.cursor() as cursor:
-                    sql_insert_seminer = '''
-                    INSERT INTO seminers (seminer_date, seminer_name, seminer_details, seminer_image, status, created_at)
-                    VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
-                    '''
-                    cursor.execute(sql_insert_seminer, (seminer_date, seminer_name, seminer_details, resized_image_data, status))
-
-                # Commit changes
-                connection.commit()
-                return jsonify({"message": "Seminar upload successful"}), 200
-
-            except pymysql.MySQLError as e:
-                print(f"Database error: {e}")
-                return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
-
-            except Exception as e:
-                print(f"Error processing request: {str(e)}")
-                return jsonify({"message": "An error occurred. Please try again."}), 500
-
-            finally:
-                connection.close()
-
-        except Exception as e:
-            print(f"Error processing request: {str(e)}")
-            return jsonify({"message": "An error occurred. Please try again."}), 500
-
-    return jsonify({"message": "Invalid input or request processing failed."}), 400
-
-
-@app.route('/success_story_upload', methods=['POST'])
-def success_story_upload():
-    data = request.get_json()
-    success_link = data.get('success_link')
-    success_title = data.get('success_title')
-    success_details = data.get('success_details')
-    success_image = data.get('success_image')
-    
-    if success_link and success_title and success_details and success_image:
-        try:
-            # Check if the base64 string starts with the data URL scheme
-            if not success_image.startswith('data:image/'):
-                return jsonify({"message": "Invalid image format."}), 400
-
-            # Extract the MIME type and base64 data
-            header, image_data = success_image.split(',', 1)
-            mime_type = header.split(';')[0].split(':')[1]
-            if mime_type not in ['image/jpeg', 'image/png', 'image/jpg']:
-                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
-
-            # Decode base64 image
-            success_image_data = base64.b64decode(image_data)
-
-            # Resize image to be under 60KB
-            image = Image.open(io.BytesIO(success_image_data))
-            image_format = image.format  # Get original image format
-
-            # Define function to resize the image while maintaining quality
-            def resize_image(image, max_size_kib):
-                output_io = io.BytesIO()
-                quality = 95  # Start with high quality
-                while True:
-                    output_io.seek(0)
-                    image.save(output_io, format=image_format, quality=quality)
-                    size = output_io.tell()
-                    if size <= max_size_kib * 1024 or quality <= 5:
-                        break
-                    quality -= 5
-                output_io.seek(0)
-                return output_io
-
-            resized_image_io = resize_image(image, 60)
-            resized_image_data = resized_image_io.read()
-
-            # Connect to the database
-            connection = pymysql.connect(**db_config)
-
-            try:
-                with connection.cursor() as cursor:
-                    sql_insert_success_story = '''
-                    INSERT INTO success_stories (success_link, success_title, success_details, success_image, created_at)
-                    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
-                    '''
-                    cursor.execute(sql_insert_success_story, (success_link, success_title, success_details, resized_image_data))
-
-                # Commit changes
-                connection.commit()
-
-                return jsonify({"message": "Success story upload successful"}), 200
-
-            except pymysql.MySQLError as e:
-                print(f"Database error: {e}")
-                return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
-
-            except Exception as e:
-                print(f"Error processing request: {str(e)}")
-                return jsonify({"message": "An error occurred. Please try again."}), 500
-
-            finally:
-                connection.close()
-
-        except Exception as e:
-            print(f"Error processing request: {str(e)}")
-            return jsonify({"message": "An error occurred. Please try again."}), 500
-
-    return jsonify({"message": "Invalid input or request processing failed."}), 400
-
-
-
-@app.route('/admin_blog_upload', methods=['POST'])
-def admin_blog_upload():
-    data = request.get_json()
-    
-    # Debugging print statements
-    print("Received data:", data)
-
-    admin_blog_writer = data.get('admin_blog_writer')
-    admin_blog_headline = data.get('admin_blog_headline')
-    admin_blog_details = data.get('admin_blog_details')
-    admin_blog_image = data.get('admin_blog_image')
-    
-    if admin_blog_writer and admin_blog_headline and admin_blog_details and admin_blog_image:
-        try:
-            if not admin_blog_image.startswith('data:image/'):
-                return jsonify({"message": "Invalid image format."}), 400
-
-            header, image_data = admin_blog_image.split(',', 1)
-            mime_type = header.split(';')[0].split(':')[1]
-            if mime_type not in ['image/jpeg', 'image/png', 'image/jpg']:
-                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
-
-            admin_blog_image_data = base64.b64decode(image_data)
-
-            image = Image.open(io.BytesIO(admin_blog_image_data))
-            image_format = image.format
-
-            def resize_image(image, max_size_kib):
-                output_io = io.BytesIO()
-                quality = 95
-                while True:
-                    output_io.seek(0)
-                    image.save(output_io, format=image_format, quality=quality)
-                    size = output_io.tell()
-                    if size <= max_size_kib * 1024 or quality <= 5:
-                        break
-                    quality -= 5
-                output_io.seek(0)
-                return output_io
-
-            resized_image_io = resize_image(image, 60)
-            resized_image_data = resized_image_io.read()
-
-            connection = pymysql.connect(**db_config)
-
-            try:
-                with connection.cursor() as cursor:
-                    sql_insert_blog = '''
-                    INSERT INTO admin_blog (admin_blog_writer, admin_blog_headline, admin_blog_details, admin_blog_image, created_at)
-                    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
-                    '''
-                    cursor.execute(sql_insert_blog, (admin_blog_writer, admin_blog_headline, admin_blog_details, resized_image_data))
-
-                connection.commit()
-
-                return jsonify({"message": "Admin blog upload successful"}), 200
-
-            except pymysql.MySQLError as e:
-                print(f"Database error: {e}")
-                return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
-
-            except Exception as e:
-                print(f"Error processing request: {str(e)}")
-                return jsonify({"message": "An error occurred. Please try again."}), 500
-
-            finally:
-                connection.close()
-
-        except Exception as e:
-            print(f"Error processing request: {str(e)}")
-            return jsonify({"message": "An error occurred. Please try again."}), 500
-
-    return jsonify({"message": "Invalid input or request processing failed."}), 400
-
-
-###################################################################################################################################################################################
-
-########################################################################### L I K E   A   P O S T #################################################################################
-
-@app.route('/add_comment/<int:blog_id>', methods=['POST', 'GET'])
-def add_comment(blog_id):
-    if 'user_email' not in session:
-        return jsonify({"message": "User not logged in"}), 401 
-
-    user_email = session.get('user_email')
-
-    if request.method == 'POST':
-        data = request.get_json()
-        comment = data.get('comment')
-
-        if not user_email or not comment:
-            return jsonify({"message": "User email or comment not found in request"}), 400
-
-        try:
-            connection = pymysql.connect(**db_config)
-            with connection.cursor() as cursor:
-
-                sql_select_blog = "SELECT comment, emails_commented, user_comment FROM user_blog WHERE blog_id = %s"
-                cursor.execute(sql_select_blog, (blog_id,))
-                blog = cursor.fetchone()
-
-                if not blog:
-                    return jsonify({"message": "Blog post not found"}), 404
-
-                comments_count = blog['comment'] if blog['comment'] is not None else 0
-                emails_commented = blog['emails_commented'] or ''
-                user_comment = blog['user_comment'] or ''
-
-                comments_count += 1
-                updated_emails_commented = f"{emails_commented},{user_email}" if emails_commented else user_email
-
-                unique_key = user_email
-                new_comment_entry = f"{unique_key}:{comment}"
-                updated_user_comment = f"{user_comment},{new_comment_entry}" if user_comment else new_comment_entry
-
-                sql_update = """
-                    UPDATE user_blog
-                    SET comment = %s,
-                        emails_commented = %s,
-                        user_comment = %s
-                    WHERE blog_id = %s
-                """
-                cursor.execute(sql_update, (comments_count, updated_emails_commented, updated_user_comment, blog_id))
-
-            connection.commit()
-            return jsonify({
-                "message": "Comment added successfully",
-                "comment_count": comments_count
-            }), 200
-        except Exception as e:
-            return jsonify({"message": f"An error occurred: {str(e)}"}), 500
-        finally:
-            if connection:
-                connection.close()
-
-    elif request.method == 'GET':
-        try:
-            connection = pymysql.connect(**db_config)
-            with connection.cursor() as cursor:
-                sql_select_blog = "SELECT comment FROM user_blog WHERE blog_id = %s"
-                cursor.execute(sql_select_blog, (blog_id,))
-                blog = cursor.fetchone()
-
-                if not blog:
-                    return jsonify({"message": "Blog post not found"}), 404
-
-                comments_count = blog['comment'] if blog['comment'] is not None else 0
-
-            connection.commit()
-            return jsonify({
-                "comments_count": comments_count
-            }), 200
-        except Exception as e:
-            return jsonify({"message": f"An error occurred: {str(e)}"}), 500
-        finally:
-            if connection:
-                connection.close()
-
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-@app.route('/toggle_like/<int:blog_id>', methods=['POST'])
-def toggle_like(blog_id):
-    if 'user_email' not in session:
-        return jsonify({"message": "User not logged in"}), 401
-
-    user_email = session.get('user_email')
-    if not user_email:
-        return jsonify({"message": "User email not found in session"}), 401
-
-    try:
-        connection = pymysql.connect(**db_config)
-        with connection.cursor() as cursor:
-            # Check if the blog post exists and get current like count
-            sql_select = "SELECT `like`, `emails_liked` FROM user_blog WHERE blog_id = %s"
-            cursor.execute(sql_select, (blog_id,))
-            blog = cursor.fetchone()
-
-            if not blog:
-                return jsonify({"message": "Blog post not found"}), 404
-
-            like_count = blog['like'] if blog['like'] is not None else 0
-            emails_liked = blog['emails_liked'] or ''
-            emails_liked_list = emails_liked.split(',') if emails_liked else []
-
-            if user_email in emails_liked_list:
-                like_count = max(0, like_count - 1)  # Ensure like_count doesn't go below 0
-                emails_liked_list.remove(user_email)
-                action = 'unliked'
-            else:
-                like_count += 1
-                emails_liked_list.append(user_email)
-                action = 'liked'
-
-            updated_emails_liked = ','.join(filter(None, emails_liked_list))
-
-            # Update the blog post with new like count and emails_liked
-            sql_update = "UPDATE user_blog SET `like` = %s, `emails_liked` = %s WHERE blog_id = %s"
-            cursor.execute(sql_update, (like_count, updated_emails_liked, blog_id))
-
-        connection.commit()
-        return jsonify({
-            "message": "Like toggled successfully",
-            "like_count": like_count,
-            "action": action
-        }), 200
-    except Exception as e:
-        return jsonify({"message": f"An error occurred: {str(e)}"}), 500
-    finally:
-        if connection:
-            connection.close()
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-///////////////////////////////////////// A D D I N G   C O M M E N T S ///////////////////////////////////////////////////////////////////////////////////////////////
-
-@app.route('/add_comment/<int:blog_id>', methods=['POST', 'GET'])
-def add_comment(blog_id):
-    if 'user_email' not in session:
-        return jsonify({"message": "User not logged in"}), 401 
-
-    user_email = session.get('user_email')
-
-    if request.method == 'POST':
-        data = request.get_json()
-        comment = data.get('comment')
-
-        if not user_email or not comment:
-            return jsonify({"message": "User email or comment not found in request"}), 400
-
-        try:
-            connection = pymysql.connect(**db_config)
-            with connection.cursor() as cursor:
-                sql_select_user = "SELECT Full_name FROM student_signup WHERE Email = %s"
-                cursor.execute(sql_select_user, (user_email,))
-                user = cursor.fetchone()
-
-                if not user:
-                    return jsonify({"message": "User not found"}), 404
-
-                full_name = user['Full_name']
-
-                sql_select_blog = "SELECT comment, emails_commented, user_comments FROM user_blog WHERE blog_id = %s"
-                cursor.execute(sql_select_blog, (blog_id,))
-                blog = cursor.fetchone()
-
-                if not blog:
-                    return jsonify({"message": "Blog post not found"}), 404
-
-                comments_count = blog['comment'] if blog['comment'] is not None else 0
-                emails_commented = blog['emails_commented'] or ''
-                user_comments = blog['user_comments'] or ''
-
-                comments_count += 1
-                updated_emails_commented = f"{emails_commented},{user_email}" if emails_commented else user_email
-
-                import time
-                # unique_key = f"{full_name}_{int(time.time())}"
-                unique_key = f"{user_email}"
-                new_comment_entry = f"{unique_key}:{comment}"
-                updated_user_comments = f"{user_comments},{new_comment_entry}" if user_comments else new_comment_entry
-
-                sql_update = """
-                    UPDATE user_blog
-                    SET comment = %s,
-                        emails_commented = %s,
-                        user_comments = %s
-                    WHERE blog_id = %s
-                """
-                cursor.execute(sql_update, (comments_count, updated_emails_commented, updated_user_comments, blog_id))
-
-            connection.commit()
-            return jsonify({
-                "message": "Comment added successfully",
-                "comment_count": comments_count
-            }), 200
-        except Exception as e:
-            return jsonify({"message": f"An error occurred: {str(e)}"}), 500
-        finally:
-            if connection:
-                connection.close()
-
-    elif request.method == 'GET':
-        try:
-            connection = pymysql.connect(**db_config)
-            with connection.cursor() as cursor:
-                sql_select_blog = "SELECT comment FROM user_blog WHERE blog_id = %s"
-                cursor.execute(sql_select_blog, (blog_id,))
-                blog = cursor.fetchone()
-
-                if not blog:
-                    return jsonify({"message": "Blog post not found"}), 404
-
-                comments_count = blog['comment'] if blog['comment'] is not None else 0
-
-            connection.commit()
-            return jsonify({
-                "comments_count": comments_count
-            }), 200
-        except Exception as e:
-            return jsonify({"message": f"An error occurred: {str(e)}"}), 500
-        finally:
-            if connection:
-                connection.close()
-
-
-@app.route('/all_comments/<int:blog_id>', methods=['GET'])
-def all_comments(blog_id):
-    try:
-        connection = pymysql.connect(**db_config)
-        
-        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
-            cursor.execute("SELECT user_comments FROM user_blog WHERE blog_id = %s", (blog_id,))
-            user_comments = cursor.fetchall()
-            
-            print(f"Fetched comments for blog_id {blog_id}: {user_comments}")  # Log fetched comments
-            
-            # Check if there are no comments or if the 'user_comments' field is empty
-            if not user_comments or not user_comments[0]['user_comments']:
-                print(f"No comments found for blog_id {blog_id}")  # Log when no comments are found
-                return jsonify({"comments": []}), 200
-
-            all_comments_data = []
-
-            # Process each row in the fetched data
-            for comment in user_comments:
-                comments = comment['user_comments'].split(',')
-
-                for each_comment in comments:
-                    if ':' in each_comment:
-                        email, user_comment = each_comment.split(':', 1)
-
-                        cursor.execute("SELECT Full_name, Image FROM student_signup WHERE Email = %s", (email,))
-                        user_data = cursor.fetchone()
-
-                        if user_data:
-                            user_data['Image'] = base64.b64encode(user_data['Image']).decode('utf-8') if user_data['Image'] else None
-
-                            comment_data = {
-                                'Email': email,
-                                'Full_name': user_data['Full_name'],
-                                'Image': user_data['Image'],
-                                'Comment': user_comment.strip()
-                            }
-                            all_comments_data.append(comment_data)
-
-            print(f"Processed comments: {all_comments_data}")  # Log processed comments
-            return jsonify({"comments": all_comments_data})
-
-    except Exception as e:
-        print(f"Error in all_comments: {str(e)}")  # Log any errors
-        return jsonify({"error": "Internal server error", "message": str(e)}), 500
-
-    finally:
-        if connection:
-            connection.close()
-
-
 
