@@ -376,6 +376,65 @@ def fetch_seminers_last_two():
         connection.close()        
 
 ////////////////////////////////////////  RENEWED ROUTES FOR IMAGE VALIDATION TO SAVE BEST QUALITY IMAGE AS BLOB IN DATABASE /////////////////////////////////////////////////////////
+#################### GIF/SVG/MP4 Upload For Carousel ######################
+from flask import request, jsonify
+from werkzeug.utils import secure_filename
+import pymysql
+import base64
+import io
+from PIL import Image
+from moviepy.editor import VideoFileClip
+@app.route('/carousel_image_upload', methods=['POST'])
+def carousel_image_upload():
+    def save_file_to_db(image_name, filedata, mime_type):
+        connection = pymysql.connect(**db_config)
+        try:
+            with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+                sql_insert_file = '''
+                    INSERT INTO carousel_images (image_name, carousel_image, mime_type, status)
+                    VALUES (%s, %s, %s, %s)
+                '''
+                cursor.execute(sql_insert_file, (image_name, filedata, mime_type, False))
+            connection.commit()
+        finally:
+            connection.close()
+
+    try:
+        image_name = request.form.get('image_name')
+        carousel_file = request.files.get('carousel_file')  # Expecting file upload
+
+        if not image_name or not carousel_file:
+            return jsonify({"message": "File or image name missing."}), 400
+
+        filetype = carousel_file.content_type
+        filedata = carousel_file.read()
+
+        # Handle different file types
+        if filetype.startswith('image/') or filetype == 'video/mp4':
+            if filetype == 'video/mp4':
+                # Check video duration
+                video = VideoFileClip(io.BytesIO(filedata))
+                if video.duration > 5:
+                    return jsonify({"message": "MP4 file duration exceeds 5 seconds."}), 400
+                filedata = base64.b64encode(filedata).decode('utf-8')
+            else:
+                # Process images
+                valid_image_types = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/svg+xml']
+                if filetype not in valid_image_types:
+                    return jsonify({"message": "Unsupported image format."}), 400
+                filedata = base64.b64encode(filedata).decode('utf-8')
+
+            # Save to database
+            save_file_to_db(image_name, filedata, filetype)
+            return jsonify({"message": "File successfully uploaded"}), 200
+        else:
+            return jsonify({"message": "Unsupported file type."}), 400
+
+    except Exception as e:
+        print(f"Error processing request: {str(e)}")
+        return jsonify({"message": f"An error occurred: {str(e)}"}), 500
+
+////////////////////////////////////////////////////
 @app.route('/carousel_image_upload', methods=['POST'])
 def carousel_image_upload():
     image_name = request.form.get('image_name')
