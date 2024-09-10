@@ -157,6 +157,113 @@ def copy_to_trending():
         return jsonify({"message": "An error occurred!", "error": str(e)}), 500
     finally:
         connection.close()
+###################### SIGNUP FORM #####################
+############### 1st version - Ridoy Bhaiya ###########
+
+############# Updated SignUp Form Route ############
+############## 2nd & 3rd Version - Sumaiya #########
+
+@app.route('/S_Signup', methods=['POST'])
+def S_Signup():
+    # Extract form data
+    full_name = request.form.get('full-name')
+    email = request.form.get('email')
+    organization = request.form.get('organization') # Renamed on Front-end as Educational Institution
+    phone_number = request.form.get('phone-number')
+    address = request.form.get('address')
+    educational_level = request.form.get('educational-level')
+    skills = request.form.get('skills') # Renamed on Front-end as Subject of Study
+    freelancing_word_data = request.form.get(' freelancing_word_data') 
+    # freelancing_experience = request.form.get('freelancing-experience')
+    # portfolio_links = request.form.getlist('portfolio-links[]')
+    # language_proficiency = request.form.getlist('language-proficiency[]')
+    # training_done = request.form.getlist('training_done[]')
+    # training_interest = request.form.getlist('training_interest[]')
+    image_upload = request.files.get('image-upload')
+    password = request.form.get('password')
+
+    # Handle image upload and resizing
+    image_data = None
+    default_image_path = 'static/assets/profile_avatar/avatar.jpg'
+
+    try:
+        if image_upload:
+            # Check if the uploaded file is an image
+            if image_upload.content_type not in ['image/jpeg', 'image/png', 'image/jpg']:
+                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
+
+            # Open the image and resize it
+            image = Image.open(image_upload)
+
+            # Function to resize image to be under 60KB
+            def resize_image(image, max_size_kib):
+                output_io = io.BytesIO()
+                quality = 95
+                while True:
+                    output_io.seek(0)
+                    image.save(output_io, format=image.format, quality=quality)
+                    size = output_io.tell()
+                    if size <= max_size_kib * 1024 or quality <= 5:
+                        break
+                    quality -= 5
+                output_io.seek(0)
+                return output_io
+
+            resized_image_io = resize_image(image, 60)
+            image_data = resized_image_io.read()
+
+        else:
+            # Load default image if none is uploaded
+            with open(default_image_path, 'rb') as f:
+                image_data = f.read()
+
+        # Connect to the database and perform operations
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # Check if the email is already registered
+            check_email_sql = "SELECT COUNT(*) AS count FROM student_signup WHERE Email = %s"
+            cursor.execute(check_email_sql, (email,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                return jsonify({"message": "Email is already registered"}), 400
+            else:
+                # Insert the new user into the database
+                # sql = """
+                #     INSERT INTO student_signup (Full_name, Email, Organization, Phone_number, Address, Educational_Level, Skills, Freelancing_Word_Data, Freelancing_Experience, Portfolio_Links, Language_Proficiency, Training_done, Training_interests, Image, Password)
+                #     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                # """
+
+                sql = """
+                    INSERT INTO student_signup (Full_name, Email, Organization, Phone_number, Address, Educational_Level, Skills, Freelancing_Word_Data, Image, Password)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                cursor.execute(sql, (
+                    full_name, 
+                    email, 
+                    organization, 
+                    phone_number, 
+                    address, 
+                    educational_level, 
+                    skills,
+                    freelancing_word_data, 
+                    # freelancing_experience, 
+                    # ','.join(portfolio_links), 
+                    # ','.join(language_proficiency), 
+                    # ','.join(training_done), 
+                    # ','.join(training_interest), 
+                    image_data, 
+                    password
+                ))
+            connection.commit()
+
+    except Exception as e:
+        # Print the error to console for debugging
+        print(e)
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()
+
+    return jsonify({"message": "Signup successful"}), 200
 
 /////////////////////////////////////////// ADMIN PANEL /////////////////////////////////////////////////////////////////
 
@@ -1077,6 +1184,7 @@ def all_comments(blog_id):
 ///////////////////////////////////////////////////////////////// O L D    V E R S I O N ////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+############################################################# A L L  B Y  S U M A I Y A ###################################################################################
 
 @app.route('/home')
 def home():
