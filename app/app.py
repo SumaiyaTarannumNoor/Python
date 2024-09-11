@@ -18,6 +18,100 @@ def user_blog():
             # Set image_data to None if not provided
             image_data = None
             if imageFile:
+                # Read the file
+                file_data = imageFile.read()
+                
+                # Get MIME type
+                mime_type = imageFile.content_type
+                print(f"Received MIME type: {mime_type}")
+                
+                if mime_type not in ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/svg+xml']:
+                    return jsonify({"message": "Unsupported image format. Only JPG, JPEG, PNG, GIF, and SVG formats are allowed."}), 400
+                
+                if mime_type != 'image/svg+xml':
+                    image = Image.open(io.BytesIO(file_data))
+                    image_format = image.format
+                    
+                    def resize_image(image, max_size_kib):
+                        output_io = io.BytesIO()
+                        quality = 95
+                        while True:
+                            output_io.seek(0)
+                            image.save(output_io, format=image_format, quality=quality)
+                            size = output_io.tell()
+                            if size <= max_size_kib * 1024 or quality <= 5:
+                                break
+                            quality -= 5
+                        output_io.seek(0)
+                        return output_io
+                    
+                    if mime_type != 'image/gif':
+                        resized_image_io = resize_image(image, 60)  # Resize image to fit within 60 KB
+                        image_data = resized_image_io.getvalue()
+                    else:
+                        image_data = file_data
+                else:
+                    image_data = file_data
+                
+                if not image_data:
+                    return jsonify({"message": "Invalid image data."}), 400
+            
+            # Connect to the database
+            connection = pymysql.connect(**db_config)
+            
+            try:
+                with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+                    # First, fetch user details from student_signup table
+                    sql_fetch_user = """
+                    SELECT Full_name, Image
+                    FROM student_signup
+                    WHERE Email = %s
+                    """
+                    cursor.execute(sql_fetch_user, (email,))
+                    user_data = cursor.fetchone()
+                    
+                    if not user_data:
+                        return jsonify({"message": "User not found"}), 404
+                    
+                    user_name = user_data['Full_name']
+                    user_image = user_data['Image']
+                    
+                    # Now insert data into user_blog table
+                    sql_insert_blog = '''
+                    INSERT INTO user_blog (email, emojiText, imageFile, approve, user_name, user_image)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    '''
+                    cursor.execute(sql_insert_blog, (email, emojiText, image_data, False, user_name, user_image))
+                
+                # Commit changes
+                connection.commit()
+                
+                return jsonify({"message": "Post successful"}), 200
+            
+            finally:
+                connection.close()
+        
+        except Exception as e:
+            print(f"Error processing request: {str(e)}")
+            return jsonify({"message": "An error occurred. Please try again."}), 500
+    
+    return jsonify({"message": "User not authenticated or request processing failed."}), 401
+
+########### OLD VERSION ###############
+@app.route('/user_blog', methods=['POST'])
+def user_blog():
+    if 'logged_in' in session and session['logged_in']:
+        try:
+            # Get user's email from session
+            email = session['user_email']
+            
+            # Extract form data
+            emojiText = request.form.get('emojiText')
+            imageFile = request.files.get('imageFile')
+            
+            # Set image_data to None if not provided
+            image_data = None
+            if imageFile:
                 filename = secure_filename(imageFile.filename)
                 image_data = imageFile.read()
             
