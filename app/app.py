@@ -359,6 +359,57 @@ def S_Signup():
 
     return jsonify({"message": "Signup successful"}), 200
 
+@app.route('/fetch_user_data', methods=['GET'])
+def fetch_user_data():
+    email =session['user_email']
+    # email = session['user_email']
+    # if 'email' not in session:
+    #     return jsonify({"message": "User not logged in"}), 401
+
+    
+    # print(email)
+    try:
+        connection = pymysql.connect(**db_config)
+        cursor = connection.cursor(pymysql.cursors.DictCursor)
+        sql = """SELECT 
+            Full_name,
+            Email,
+            Organization,
+            Phone_number,
+            Address,
+            Educational_Level,
+            Skills,
+            # Freelancing_Experience,
+            # Portfolio_Links,
+            # Language_Proficiency,
+            # Training_done,
+            # Training_interests,
+            Image,
+            Password
+        FROM 
+            student_signup
+        WHERE Email = %s;"""
+        
+        cursor.execute(sql, (email,))
+        data = cursor.fetchall()
+        # print(data)
+        for row in data:
+            if row['Image']:
+                row['Image'] = f"/fetch_image_drawer/{row['Email']}"
+        # print(data)
+        return jsonify(data), 200
+    except pymysql.MySQLError as e:
+        print(f"MySQL error occurred: {e.args[0]} - {e.args[1]}")
+        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+    except Exception as e:
+        # print(f"An error occurred: {str(e)}")
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        if connection:
+            # print("Closing connection...")
+            connection.close()
+
+
 /////////////////////////////////////////// ADMIN PANEL /////////////////////////////////////////////////////////////////
 
 @app.route('/seminer_upload', methods=['POST'])
