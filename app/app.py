@@ -554,6 +554,49 @@ def S_Signup():
 
     return jsonify({"message": "Signup successful"}), 200
 
+@app.route('/fetch-users', methods=['GET'])
+def fetch_users():
+    try:
+        # Get the search query from the request
+        search_query = request.args.get('query', '')
+
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # SQL query with search functionality
+            sql = """
+            SELECT Full_name, Email, Phone_number, category, seminer_date, seminer_name   
+            FROM student_signup 
+            WHERE Full_name LIKE %s OR Email LIKE %s OR Phone_number LIKE %s OR category LIKE %s OR seminer_date LIKE %s OR seminer_name LIKE %s 
+            ORDER BY created_at DESC
+            """
+            # The search query will be used in a wildcard search
+            wildcard_search = f"%{search_query}%"
+            cursor.execute(sql, (wildcard_search, wildcard_search, wildcard_search, wildcard_search, wildcard_search, wildcard_search))
+            data = cursor.fetchall()
+
+            return jsonify(data), 200
+    except Exception as e:
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()
+############## OLD VERSION ##############
+# @app.route('/fetch-users', methods=['GET'])
+# def fetch_users():
+#     try:
+#         connection = pymysql.connect(**db_config)
+#         with connection.cursor() as cursor:
+#             sql = """SELECT Full_name, Email, Phone_number 
+#                      FROM student_signup ORDER BY created_at DESC"""  
+#             cursor.execute(sql)
+#             data = cursor.fetchall()
+#             return jsonify(data), 200
+#     except Exception as e:
+#         return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+#     finally:
+#         connection.close()   
+
+
+
 @app.route('/fetch_user_data', methods=['GET'])
 def fetch_user_data():
     email =session['user_email']
