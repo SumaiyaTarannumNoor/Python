@@ -595,6 +595,27 @@ def fetch_users():
 #     finally:
 #         connection.close()   
 
+@app.route('/delete-user', methods=['DELETE'])
+def delete_user():
+    try:
+        # Get the email from the request
+        email = request.args.get('email', '')
+
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # SQL query to delete a user based on their email
+            sql = "DELETE FROM student_signup WHERE Email = %s"
+            cursor.execute(sql, (email,))
+            connection.commit()
+
+            if cursor.rowcount > 0:
+                return jsonify({"message": "User deleted successfully"}), 200
+            else:
+                return jsonify({"message": "User not found"}), 404
+    except Exception as e:
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()
 
 
 @app.route('/fetch_user_data', methods=['GET'])
