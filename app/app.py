@@ -254,6 +254,9 @@ def copy_to_trending():
 ###################### SIGNUP FORM #####################
 ################## 4th Version ########################
 ################# General Form ####################
+from PIL import Image
+import io
+
 @app.route('/S_Signup', methods=['POST'])
 def S_Signup():
     # Extract form data
@@ -320,7 +323,7 @@ def S_Signup():
             else:
                 # Insert the new user into the database with default category, seminer_date, and seminer_name
                 sql = """
-                    INSERT INTO student_signup (Full_name, Email, Organization, Phone_number, Address, Educational_Level, Skills, Freelancing_Word_Data, Image, Password, Category, Seminer_Date, Seminer_Name)
+                    INSERT INTO student_signup (Full_name, Email, Organization, Phone_number, Address, Educational_Level, Skills, Freelancing_Word_Data, Image, Password, category, seminer_date, seminer_name)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 cursor.execute(sql, (
@@ -350,6 +353,105 @@ def S_Signup():
     return jsonify({"message": "Signup successful"}), 200
 
 ################# Event SignUp #######################
+from PIL import Image
+import io
+
+@app.route('/S_Signup', methods=['POST'])
+def S_Signup():
+    # Extract form data
+    full_name = request.form.get('full-name')
+    email = request.form.get('email')
+    organization = request.form.get('organization') # Renamed on Front-end as Educational Institution
+    phone_number = request.form.get('phone-number')
+    address = request.form.get('address')
+    educational_level = request.form.get('educational-level')
+    skills = request.form.get('skills') # Renamed on Front-end as Subject of Study
+    freelancing_word_data = request.form.get('freelancing_word_data')
+    image_upload = request.files.get('image-upload')
+    password = request.form.get('password')
+
+    # Set category, seminer_date, and seminer_name default values
+    category = 'General'
+    seminer_date = None
+    seminer_name = None
+
+    # Handle image upload and resizing
+    image_data = None
+    default_image_path = 'static/assets/profile_avatar/avatar.jpg'
+
+    try:
+        if image_upload:
+            # Check if the uploaded file is an image
+            if image_upload.content_type not in ['image/jpeg', 'image/png', 'image/jpg']:
+                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
+
+            # Open the image and resize it
+            image = Image.open(image_upload)
+
+            # Function to resize image to be under 60KB
+            def resize_image(image, max_size_kib):
+                output_io = io.BytesIO()
+                quality = 95
+                while True:
+                    output_io.seek(0)
+                    image.save(output_io, format=image.format, quality=quality)
+                    size = output_io.tell()
+                    if size <= max_size_kib * 1024 or quality <= 5:
+                        break
+                    quality -= 5
+                output_io.seek(0)
+                return output_io
+
+            resized_image_io = resize_image(image, 60)
+            image_data = resized_image_io.read()
+
+        else:
+            # Load default image if none is uploaded
+            with open(default_image_path, 'rb') as f:
+                image_data = f.read()
+
+        # Connect to the database and perform operations
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # Check if the email is already registered
+            check_email_sql = "SELECT COUNT(*) AS count FROM student_signup WHERE Email = %s"
+            cursor.execute(check_email_sql, (email,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                return jsonify({"message": "Email is already registered"}), 400
+            else:
+                # Insert the new user into the database with default category, seminer_date, and seminer_name
+                sql = """
+                    INSERT INTO student_signup (Full_name, Email, Organization, Phone_number, Address, Educational_Level, Skills, Freelancing_Word_Data, Image, Password, category, seminer_date, seminer_name)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                cursor.execute(sql, (
+                    full_name, 
+                    email, 
+                    organization, 
+                    phone_number, 
+                    address, 
+                    educational_level, 
+                    skills,
+                    freelancing_word_data, 
+                    image_data, 
+                    password,
+                    category,       # Default value 'General'
+                    seminer_date,   # Default value NULL
+                    seminer_name    # Default value NULL
+                ))
+            connection.commit()
+
+    except Exception as e:
+        # Print the error to console for debugging
+        print(e)
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()
+
+    return jsonify({"message": "Signup successful"}), 200
+
+
 @app.route('/S_Signup_Event', methods=['POST'])
 def S_Signup_Event():
     # Extract form data
@@ -416,7 +518,7 @@ def S_Signup_Event():
             else:
                 # Insert the new user into the database with seminar details
                 sql = """
-                    INSERT INTO student_signup (Full_name, Email, Organization, Phone_number, Address, Educational_Level, Skills, Freelancing_Word_Data, Image, Password, Category, seminer_date, seminer_name)
+                    INSERT INTO student_signup (Full_name, Email, Organization, Phone_number, Address, Educational_Level, Skills, Freelancing_Word_Data, Image, Password, category, seminer_date, seminer_name)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 cursor.execute(sql, (
@@ -451,7 +553,8 @@ def S_Signup_Event():
 
 ############# Updated SignUp Form Route ############
 ############## 2nd & 3rd Version - Sumaiya #########
-
+from PIL import Image
+import io
 @app.route('/S_Signup', methods=['POST'])
 def S_Signup():
     # Extract form data
