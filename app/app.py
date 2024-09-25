@@ -989,6 +989,187 @@ def fetch_seminers_last_two():
     finally:
         connection.close()        
 
+@app.route('/course_video_upload', methods=['POST'])
+def course_video_upload():
+    data = request.get_json()
+    course_link = data.get('course_link')
+    course_title = data.get('course_title')
+    course_details = data.get('course_details')
+
+    if course_link and course_title and course_details:
+        try:
+            # Connect to the database
+            connection = pymysql.connect(**db_config)
+
+            try:
+                with connection.cursor() as cursor:
+                    sql_insert_course = '''
+                    INSERT INTO video_courses (course_link, course_title, course_details)
+                    VALUES (%s, %s, %s)
+                    '''
+                    cursor.execute(sql_insert_course, (course_link, course_title, course_details))
+
+                # Commit changes
+                connection.commit()
+
+                return jsonify({"message": "Post successful"}), 200
+
+            except Exception as e:
+                print(f"Error processing request: {str(e)}")
+                return jsonify({"message": "An error occurred. Please try again."}), 500
+
+            finally:
+                connection.close()
+
+        except Exception as e:
+            print(f"Error processing request: {str(e)}")
+            return jsonify({"message": "An error occurred. Please try again."}), 500
+
+    return jsonify({"message": "Invalid input or request processing failed."}), 400
+
+
+@app.route('/course_video_edit/<int:course_id>', methods=['POST'])
+def course_video_edit(course_id):
+    data = request.get_json()
+    course_link = data.get('course_link')
+    course_title = data.get('course_title')
+    course_details = data.get('course_details')
+
+    if course_link and course_title and course_details:
+        try:
+            # Connect to the database
+            connection = pymysql.connect(**db_config)
+
+            try:
+                with connection.cursor() as cursor:
+                    sql_update_course = '''
+                    UPDATE video_courses
+                    SET course_link = %s, course_title = %s, course_details = %s
+                    WHERE id = %s
+                    '''
+                    cursor.execute(sql_update_course, (course_link, course_title, course_details, course_id))
+
+                # Commit changes
+                connection.commit()
+
+                if cursor.rowcount == 0:
+                    return jsonify({"message": "No course found with the given ID."}), 404
+
+                return jsonify({"message": "Course updated successfully"}), 200
+
+            except Exception as e:
+                print(f"Error processing request: {str(e)}")
+                return jsonify({"message": "An error occurred. Please try again."}), 500
+
+            finally:
+                connection.close()
+
+        except Exception as e:
+            print(f"Error processing request: {str(e)}")
+            return jsonify({"message": "An error occurred. Please try again."}), 500
+
+    return jsonify({"message": "Invalid input or request processing failed."}), 400
+
+
+
+@app.route('/fetch_course_videos', methods=['GET'])
+def fetch_course_videos():
+    try:
+        connection = pymysql.connect(**db_config)
+        print("Database connection established.")
+        
+        with connection.cursor() as cursor:
+            sql = "SELECT * FROM video_courses ORDER BY created_at DESC"
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+            print(f"Fetched rows: {rows}")
+
+            if rows:
+                course_data = []
+                for row in rows:
+                    course_data.append({
+                        'course_id': row['course_id'],
+                        'course_link': row['course_link'],
+                        'course_title': row['course_title'],
+                        'course_details': row['course_details'],
+                        'created_at': row['created_at'].strftime('%Y-%m-%d %H:%M:%S')  # Formatting the timestamp
+                    })
+                return jsonify(course_data), 200
+            else:
+                return jsonify({"message": "No data found"}), 404
+
+    except pymysql.MySQLError as e:
+        print(f"MySQL error: {str(e)}")
+        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()
+
+@app.route('/fetch_course_videos_latest', methods=['GET'])
+def fetch_course_videos_latest():
+    try:
+        connection = pymysql.connect(**db_config)
+        print("Database connection established.")
+        
+        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+            sql = "SELECT * FROM video_courses ORDER BY created_at DESC LIMIT 3"
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+            print(f"Fetched rows: {rows}")
+
+            if rows:
+                course_data = []
+                for row in rows:
+                    course_data.append({
+                        'course_id': row['course_id'],
+                        'course_link': row['course_link'],
+                        'course_title': row['course_title'],
+                        'course_details': row['course_details'],
+                        'created_at': row['created_at'].strftime('%Y-%m-%d %H:%M:%S')  # Formatting the timestamp
+                    })
+                return jsonify(course_data), 200
+            else:
+                return jsonify({"message": "No data found"}), 404
+
+    except pymysql.MySQLError as e:
+        print(f"MySQL error: {str(e)}")
+        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()
+
+
+@app.route('/delete_course_video/<int:video_id>', methods=['DELETE'])
+def delete_course_video(video_id):
+    connection = None
+    try:
+        connection = pymysql.connect(**db_config)
+        
+        with connection.cursor() as cursor:
+            sql = "DELETE FROM video_courses WHERE course_id = %s"
+            cursor.execute(sql, (video_id,))
+            connection.commit()
+
+            if cursor.rowcount > 0:
+                return jsonify({"message": "Video deleted successfully!"}), 200
+            else:
+                return jsonify({"message": "Video not found!"}), 404
+
+    except pymysql.MySQLError as e:
+        print(f"MySQL error: {str(e)}")
+        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        if connection:
+            connection.close()
+
+
 ////////////////////////////////////////  RENEWED ROUTES FOR IMAGE VALIDATION TO SAVE BEST QUALITY IMAGE AS BLOB IN DATABASE /////////////////////////////////////////////////////////
 ################################ GIF/ JPG/ PNG/ SVG Upload For Carousel ############################################
 @app.route('/carousel_image_upload', methods=['POST'])
