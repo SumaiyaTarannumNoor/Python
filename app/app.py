@@ -1107,6 +1107,89 @@ def fetch_course_videos():
     finally:
         connection.close()
 
+///////////////////////// Course - Working on Server ////////////////////////////////
+@app.route('/fetch_course_videos', methods=['GET'])
+def fetch_course_videos():
+    try:
+        # Fetch the search query from request parameters
+        search_query = request.args.get('query', '')
+        
+        # Establish a connection to the database
+        connection = pymysql.connect(**db_config)
+        
+        with connection.cursor() as cursor:
+            # SQL query with multiple fields using LIKE for searching
+            sql = """
+                SELECT course_id, course_link, course_title, course_details, created_at
+                FROM video_courses
+                WHERE course_link LIKE %s 
+                OR course_title LIKE %s 
+                OR course_details LIKE %s 
+                OR created_at LIKE %s
+                ORDER BY created_at DESC
+            """
+            
+            # Prepare the search query with wildcards for LIKE search
+            wildcard_search = f"%{search_query}%"
+            
+            # Execute the query with the same search term applied to all fields
+            cursor.execute(sql, (wildcard_search, wildcard_search, wildcard_search, wildcard_search))
+            
+            # Fetch all matching rows
+            data = cursor.fetchall()
+            
+            # Return the fetched data as a JSON response
+            return jsonify(data), 200
+
+    except Exception as e:
+        # Handle any errors that occur during the process
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        # Ensure the connection is closed even if an error occurs
+        connection.close()
+
+
+@app.route('/fetch_course_videos_latest', methods=['GET'])
+def fetch_course_videos_latest():
+    try:
+         # Fetch the search query from request parameters
+        search_query = request.args.get('query', '')
+        
+        # Establish a connection to the database
+        connection = pymysql.connect(**db_config)
+        
+        with connection.cursor() as cursor:
+            # SQL query with multiple fields using LIKE for searching
+            sql = """
+                SELECT course_id, course_link, course_title, course_details, created_at
+                FROM video_courses
+                WHERE course_link LIKE %s 
+                OR course_title LIKE %s 
+                OR course_details LIKE %s 
+                OR created_at LIKE %s
+                ORDER BY created_at DESC LIMIT 3
+            """
+            
+            # Prepare the search query with wildcards for LIKE search
+            wildcard_search = f"%{search_query}%"
+            
+            # Execute the query with the same search term applied to all fields
+            cursor.execute(sql, (wildcard_search, wildcard_search, wildcard_search, wildcard_search))
+            
+            # Fetch all matching rows
+            data = cursor.fetchall()
+            
+            # Return the fetched data as a JSON response
+            return jsonify(data), 200
+
+    except Exception as e:
+        # Handle any errors that occur during the process
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        # Ensure the connection is closed even if an error occurs
+        connection.close()
+
+///////////////////////// No Use /////////////////////////
 @app.route('/fetch_course_videos_latest', methods=['GET'])
 def fetch_course_videos_latest():
     try:
@@ -1141,7 +1224,7 @@ def fetch_course_videos_latest():
         return jsonify({"message": "An error occurred!", "error": str(e)}), 500
     finally:
         connection.close()
-
+/////////////////////////////////////////////////////////////////////////////
 
 @app.route('/delete_course_video/<int:video_id>', methods=['DELETE'])
 def delete_course_video(video_id):
@@ -1168,6 +1251,91 @@ def delete_course_video(video_id):
     finally:
         if connection:
             connection.close()
+
+//////////////////////////////////// Latest Videos - Working on Server ////////////////////////////////////////
+
+@app.route('/fetch_latest_videos', methods=['GET'])
+def fetch_latest_videos():
+    try:
+         # Fetch the search query from request parameters
+        search_query = request.args.get('query', '')
+        
+        # Establish a connection to the database
+        connection = pymysql.connect(**db_config)
+        
+        with connection.cursor() as cursor:
+            # SQL query with multiple fields using LIKE for searching
+            sql = """
+                SELECT latest_id, latest_link, latest_title, latest_details, created_at
+                FROM latest
+                WHERE latest_link LIKE %s 
+                OR latest_title LIKE %s 
+                OR latest_details LIKE %s 
+                OR created_at LIKE %s
+                ORDER BY created_at DESC
+            """
+            
+            # Prepare the search query with wildcards for LIKE search
+            wildcard_search = f"%{search_query}%"
+            
+            # Execute the query with the same search term applied to all fields
+            cursor.execute(sql, (wildcard_search, wildcard_search, wildcard_search, wildcard_search))
+            
+            # Fetch all matching rows
+            data = cursor.fetchall()
+            
+            # Return the fetched data as a JSON response
+            return jsonify(data), 200
+
+    except Exception as e:
+        # Handle any errors that occur during the process
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        # Ensure the connection is closed even if an error occurs
+        connection.close()
+
+
+
+@app.route('/fetch_latest_videos_latest', methods=['GET'])
+def fetch_latest_videos_latest():
+    try:
+         # Fetch the search query from request parameters
+        search_query = request.args.get('query', '')
+        
+        # Establish a connection to the database
+        connection = pymysql.connect(**db_config)
+        
+        with connection.cursor() as cursor:
+            # SQL query with multiple fields using LIKE for searching
+            sql = """
+                SELECT latest_id, latest_link, latest_title, latest_details, created_at
+                FROM latest
+                WHERE latest_link LIKE %s 
+                OR latest_title LIKE %s 
+                OR latest_details LIKE %s 
+                OR created_at LIKE %s
+                ORDER BY created_at DESC LIMIT 3
+            """
+            
+            # Prepare the search query with wildcards for LIKE search
+            wildcard_search = f"%{search_query}%"
+            
+            # Execute the query with the same search term applied to all fields
+            cursor.execute(sql, (wildcard_search, wildcard_search, wildcard_search, wildcard_search))
+            
+            # Fetch all matching rows
+            data = cursor.fetchall()
+            
+            # Return the fetched data as a JSON response
+            return jsonify(data), 200
+
+    except Exception as e:
+        # Handle any errors that occur during the process
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        # Ensure the connection is closed even if an error occurs
+        connection.close()
+
 
 
 ////////////////////////////////////////  RENEWED ROUTES FOR IMAGE VALIDATION TO SAVE BEST QUALITY IMAGE AS BLOB IN DATABASE /////////////////////////////////////////////////////////
