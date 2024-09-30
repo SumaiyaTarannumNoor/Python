@@ -17,7 +17,7 @@ email_validator==2.2.0
 fastapi==0.111.1
 fastapi-cli==0.0.4
 Flask==3.0.3
-Flask-Cors==4.0.1
+Flask-Cors==4.0.2
 Flask-Mail==0.9.1
 Flask-OAuthlib==0.9.6
 Flask-Session==0.8.0
