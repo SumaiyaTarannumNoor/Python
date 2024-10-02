@@ -1818,3 +1818,24 @@ def delete_course_video(course_id):
     finally:
         if connection:
             connection.close()
+
+@app.route('/fetch_course_categories', methods=['GET'])
+def fetch_course_categories():
+    connection = None
+   
+    try:
+        connection = pymysql.connect(**db_config)
+        
+        with connection.cursor() as cursor:
+            # Query to fetch distinct course categories
+            query = "SELECT DISTINCT course_category FROM video_courses"
+            cursor.execute(query)
+            categories = cursor.fetchall()
+
+            # Return the categories in JSON format
+            return jsonify(categories)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        connection.close()
+
