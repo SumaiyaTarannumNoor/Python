@@ -995,8 +995,9 @@ def course_video_upload():
     course_link = data.get('course_link')
     course_title = data.get('course_title')
     course_details = data.get('course_details')
+    course_category = data.get('course_category')
 
-    if course_link and course_title and course_details:
+    if course_link and course_title and course_details and course_category:
         try:
             # Connect to the database
             connection = pymysql.connect(**db_config)
@@ -1004,10 +1005,10 @@ def course_video_upload():
             try:
                 with connection.cursor() as cursor:
                     sql_insert_course = '''
-                    INSERT INTO video_courses (course_link, course_title, course_details)
-                    VALUES (%s, %s, %s)
+                    INSERT INTO video_courses (course_link, course_title, course_details, course_category)
+                    VALUES (%s, %s, %s, %s)
                     '''
-                    cursor.execute(sql_insert_course, (course_link, course_title, course_details))
+                    cursor.execute(sql_insert_course, (course_link, course_title, course_details, course_category))
 
                 # Commit changes
                 connection.commit()
@@ -1028,26 +1029,55 @@ def course_video_upload():
     return jsonify({"message": "Invalid input or request processing failed."}), 400
 
 
-@app.route('/course_video_edit/<int:course_id>', methods=['POST'])
+@app.route('/course_video_edit/<int:course_id>', methods=['GET', 'POST'])
 def course_video_edit(course_id):
-    data = request.get_json()
-    course_link = data.get('course_link')
-    course_title = data.get('course_title')
-    course_details = data.get('course_details')
+    # Connect to the database
+    connection = pymysql.connect(**db_config)
 
-    if course_link and course_title and course_details:
+    if request.method == 'GET':
         try:
-            # Connect to the database
-            connection = pymysql.connect(**db_config)
+            with connection.cursor() as cursor:
+                sql_fetch_course = '''
+                SELECT course_link, course_title, course_category, course_details
+                FROM video_courses
+                WHERE course_id = %s
+                '''
+                cursor.execute(sql_fetch_course, (course_id,))
+                course = cursor.fetchone()
 
+                if course:
+                    return jsonify({
+                        "course_link": course[0],
+                        "course_title": course[1],
+                        "course_category": course[2],
+                        "course_details": course[3]
+                    }), 200
+                else:
+                    return jsonify({"message": "No course found with the given ID."}), 404
+
+        except Exception as e:
+            print(f"Error fetching course: {str(e)}")
+            return jsonify({"message": "An error occurred while fetching the course."}), 500
+
+        finally:
+            connection.close()
+
+    elif request.method == 'POST':
+        data = request.get_json()
+        course_link = data.get('course_link')
+        course_title = data.get('course_title')
+        course_category = data.get('course_category')
+        course_details = data.get('course_details')
+
+        if course_link and course_title and course_category and course_details:
             try:
                 with connection.cursor() as cursor:
                     sql_update_course = '''
                     UPDATE video_courses
-                    SET course_link = %s, course_title = %s, course_details = %s
-                    WHERE id = %s
+                    SET course_link = %s, course_title = %s, course_category = %s, course_details = %s
+                    WHERE course_id = %s
                     '''
-                    cursor.execute(sql_update_course, (course_link, course_title, course_details, course_id))
+                    cursor.execute(sql_update_course, (course_link, course_title, course_category, course_details, course_id))
 
                 # Commit changes
                 connection.commit()
@@ -1064,50 +1094,46 @@ def course_video_edit(course_id):
             finally:
                 connection.close()
 
-        except Exception as e:
-            print(f"Error processing request: {str(e)}")
-            return jsonify({"message": "An error occurred. Please try again."}), 500
-
     return jsonify({"message": "Invalid input or request processing failed."}), 400
 
 
 
-@app.route('/fetch_course_videos', methods=['GET'])
-def fetch_course_videos():
-    try:
-        connection = pymysql.connect(**db_config)
-        print("Database connection established.")
+
+# @app.route('/fetch_course_videos', methods=['GET'])
+# def fetch_course_videos():
+#     try:
+#         connection = pymysql.connect(**db_config)
+#         print("Database connection established.")
         
-        with connection.cursor() as cursor:
-            sql = "SELECT * FROM video_courses ORDER BY created_at DESC"
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-            print(f"Fetched rows: {rows}")
+#         with connection.cursor() as cursor:
+#             sql = "SELECT * FROM video_courses ORDER BY created_at DESC"
+#             cursor.execute(sql)
+#             rows = cursor.fetchall()
+#             print(f"Fetched rows: {rows}")
 
-            if rows:
-                course_data = []
-                for row in rows:
-                    course_data.append({
-                        'course_id': row['course_id'],
-                        'course_link': row['course_link'],
-                        'course_title': row['course_title'],
-                        'course_details': row['course_details'],
-                        'created_at': row['created_at'].strftime('%Y-%m-%d %H:%M:%S')  # Formatting the timestamp
-                    })
-                return jsonify(course_data), 200
-            else:
-                return jsonify({"message": "No data found"}), 404
+#             if rows:
+#                 course_data = []
+#                 for row in rows:
+#                     course_data.append({
+#                         'course_id': row['course_id'],
+#                         'course_link': row['course_link'],
+#                         'course_title': row['course_title'],
+#                         'course_details': row['course_details'],
+#                         'created_at': row['created_at'].strftime('%Y-%m-%d %H:%M:%S')  # Formatting the timestamp
+#                     })
+#                 return jsonify(course_data), 200
+#             else:
+#                 return jsonify({"message": "No data found"}), 404
 
-    except pymysql.MySQLError as e:
-        print(f"MySQL error: {str(e)}")
-        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
-    finally:
-        connection.close()
+#     except pymysql.MySQLError as e:
+#         print(f"MySQL error: {str(e)}")
+#         return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+#     except Exception as e:
+#         print(f"Error: {str(e)}")
+#         return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+#     finally:
+#         connection.close()
 
-///////////////////////// Course - Working on Server ////////////////////////////////
 @app.route('/fetch_course_videos', methods=['GET'])
 def fetch_course_videos():
     try:
@@ -1120,11 +1146,12 @@ def fetch_course_videos():
         with connection.cursor() as cursor:
             # SQL query with multiple fields using LIKE for searching
             sql = """
-                SELECT course_id, course_link, course_title, course_details, created_at
+                SELECT course_id, course_link, course_title, course_details, course_category, created_at
                 FROM video_courses
                 WHERE course_link LIKE %s 
                 OR course_title LIKE %s 
                 OR course_details LIKE %s 
+                OR course_category LIKE %s
                 OR created_at LIKE %s
                 ORDER BY created_at DESC
             """
@@ -1133,7 +1160,7 @@ def fetch_course_videos():
             wildcard_search = f"%{search_query}%"
             
             # Execute the query with the same search term applied to all fields
-            cursor.execute(sql, (wildcard_search, wildcard_search, wildcard_search, wildcard_search))
+            cursor.execute(sql, (wildcard_search, wildcard_search, wildcard_search, wildcard_search, wildcard_search))
             
             # Fetch all matching rows
             data = cursor.fetchall()
@@ -1152,7 +1179,7 @@ def fetch_course_videos():
 @app.route('/fetch_course_videos_latest', methods=['GET'])
 def fetch_course_videos_latest():
     try:
-         # Fetch the search query from request parameters
+        # Fetch the search query from request parameters
         search_query = request.args.get('query', '')
         
         # Establish a connection to the database
@@ -1161,20 +1188,21 @@ def fetch_course_videos_latest():
         with connection.cursor() as cursor:
             # SQL query with multiple fields using LIKE for searching
             sql = """
-                SELECT course_id, course_link, course_title, course_details, created_at
+                SELECT course_id, course_link, course_title, course_details, course_category, created_at
                 FROM video_courses
                 WHERE course_link LIKE %s 
                 OR course_title LIKE %s 
                 OR course_details LIKE %s 
+                OR course_category LIKE %s
                 OR created_at LIKE %s
-                ORDER BY created_at DESC LIMIT 3
+                ORDER BY created_at DESC
             """
             
             # Prepare the search query with wildcards for LIKE search
             wildcard_search = f"%{search_query}%"
             
             # Execute the query with the same search term applied to all fields
-            cursor.execute(sql, (wildcard_search, wildcard_search, wildcard_search, wildcard_search))
+            cursor.execute(sql, (wildcard_search, wildcard_search, wildcard_search, wildcard_search, wildcard_search))
             
             # Fetch all matching rows
             data = cursor.fetchall()
@@ -1185,56 +1213,48 @@ def fetch_course_videos_latest():
     except Exception as e:
         # Handle any errors that occur during the process
         return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+
     finally:
         # Ensure the connection is closed even if an error occurs
         connection.close()
 
-///////////////////////// No Use /////////////////////////
-@app.route('/fetch_course_videos_latest', methods=['GET'])
-def fetch_course_videos_latest():
-    try:
-        connection = pymysql.connect(**db_config)
-        print("Database connection established.")
+
+
+# @app.route('/delete_course_video/<int:video_id>', methods=['DELETE'])
+# def delete_course_video(video_id):
+#     connection = None
+#     try:
+#         connection = pymysql.connect(**db_config)
         
-        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
-            sql = "SELECT * FROM video_courses ORDER BY created_at DESC LIMIT 3"
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-            print(f"Fetched rows: {rows}")
+#         with connection.cursor() as cursor:
+#             sql = "DELETE FROM video_courses WHERE course_id = %s"
+#             cursor.execute(sql, (video_id,))
+#             connection.commit()
 
-            if rows:
-                course_data = []
-                for row in rows:
-                    course_data.append({
-                        'course_id': row['course_id'],
-                        'course_link': row['course_link'],
-                        'course_title': row['course_title'],
-                        'course_details': row['course_details'],
-                        'created_at': row['created_at'].strftime('%Y-%m-%d %H:%M:%S')  # Formatting the timestamp
-                    })
-                return jsonify(course_data), 200
-            else:
-                return jsonify({"message": "No data found"}), 404
+#             if cursor.rowcount > 0:
+#                 return jsonify({"message": "Video deleted successfully!"}), 200
+#             else:
+#                 return jsonify({"message": "Video not found!"}), 404
 
-    except pymysql.MySQLError as e:
-        print(f"MySQL error: {str(e)}")
-        return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
-    finally:
-        connection.close()
-/////////////////////////////////////////////////////////////////////////////
+#     except pymysql.MySQLError as e:
+#         print(f"MySQL error: {str(e)}")
+#         return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
+#     except Exception as e:
+#         print(f"Error: {str(e)}")
+#         return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+#     finally:
+#         if connection:
+#             connection.close()
 
-@app.route('/delete_course_video/<int:video_id>', methods=['DELETE'])
-def delete_course_video(video_id):
+@app.route('/delete_course_video/<int:course_id>', methods=['DELETE'])
+def delete_course_video(course_id):
     connection = None
     try:
         connection = pymysql.connect(**db_config)
         
         with connection.cursor() as cursor:
             sql = "DELETE FROM video_courses WHERE course_id = %s"
-            cursor.execute(sql, (video_id,))
+            cursor.execute(sql, (course_id,))
             connection.commit()
 
             if cursor.rowcount > 0:
@@ -1243,14 +1263,33 @@ def delete_course_video(video_id):
                 return jsonify({"message": "Video not found!"}), 404
 
     except pymysql.MySQLError as e:
-        print(f"MySQL error: {str(e)}")
         return jsonify({"message": "A database error occurred!", "error": str(e)}), 500
     except Exception as e:
-        print(f"Error: {str(e)}")
         return jsonify({"message": "An error occurred!", "error": str(e)}), 500
     finally:
         if connection:
             connection.close()
+
+@app.route('/fetch_course_categories', methods=['GET'])
+def fetch_course_categories():
+    connection = None
+   
+    try:
+        connection = pymysql.connect(**db_config)
+
+        with connection.cursor() as cursor:
+            # Query to fetch distinct course categories
+            query = "SELECT DISTINCT course_category FROM video_courses"
+            cursor.execute(query)
+            categories = cursor.fetchall()
+
+            # Return the categories in JSON format
+            return jsonify(categories)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        connection.close()
+
 
 //////////////////////////////////// Latest Videos - Working on Server ////////////////////////////////////////
 
