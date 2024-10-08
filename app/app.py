@@ -3104,3 +3104,135 @@ def trainee_password_edit(trainee_id):
         except Exception as e:
             return jsonify({'error': f"Request error: {str(e)}"}), 500    
 
+@app.route('/create_playlist', methods=['POST'])
+def create_playlist():
+    data = request.get_json()
+    playlist_name = data.get('playlist_name')  # Update to match the key from JavaScript
+    video_ids = data.get('video_ids')
+    teachers_name = data.get('teachers_name')  # Fetch teachers_name from data
+    teachers_about = data.get('teachers_about')  # Fetch teachers_about from data
+
+    if not playlist_name or not video_ids:
+        return jsonify({"message": "Invalid data"}), 400
+
+    try:
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # Insert playlist into playlists table
+            cursor.execute("INSERT INTO playlists (name, teachers_name, teachers_about) VALUES (%s, %s, %s)", 
+                           (playlist_name, teachers_name, teachers_about))
+            playlist_id = cursor.lastrowid  # Get the last inserted playlist ID
+
+            # Insert each video into the playlist_videos table
+            for video_id in video_ids:
+                cursor.execute("INSERT INTO playlist_videos (playlist_id, video_id, teachers_name, teachers_about) VALUES (%s, %s, %s, %s)", 
+                               (playlist_id, video_id, teachers_name, teachers_about))
+            
+            connection.commit()
+
+        return jsonify({"message": "Playlist created successfully!"}), 201
+    except Exception as e:
+        print("Error creating playlist:", e)
+        return jsonify({"message": "Error creating playlist"}), 500
+    finally:
+        connection.close()
+
+
+@app.route('/fetch_playlist/<int:playlist_id>', methods=['GET'])
+def fetch_playlist(playlist_id):
+    try:
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # Fetch playlist information
+            cursor.execute("""
+                SELECT * FROM playlists
+                WHERE playlist_id = %s
+            """, (playlist_id,))
+            playlist = cursor.fetchone()
+
+            if not playlist:
+                return jsonify({"message": "Playlist not found"}), 404
+
+            # Fetch videos in the playlist
+            cursor.execute("""
+                SELECT pv.playlist_id, pv.video_id, pv.teachers_name, pv.teachers_about,
+                       vc.course_link, vc.course_title, vc.course_details, vc.course_category, vc.created_at
+                FROM playlist_videos pv
+                JOIN video_courses vc ON pv.video_id = vc.course_id
+                WHERE pv.playlist_id = %s
+            """, (playlist_id,))
+            videos = cursor.fetchall()
+
+            # Prepare the response
+            response = {
+                "playlist_id": playlist['playlist_id'],
+                "playlist_name": playlist['name'],
+                "created_at": playlist['created_at'].isoformat(),
+                "teachers_name": playlist['teachers_name'],
+                "teachers_about": playlist['teachers_about'],
+                "videos": videos
+            }
+
+            return jsonify(response), 200
+
+    except Exception as e:
+        print("Error fetching playlist:", e)
+        return jsonify({"message": "Error fetching playlist"}), 500
+
+    finally:
+        connection.close()
+
+
+@app.route('/fetch_all_playlists', methods=['GET'])
+def fetch_all_playlists():
+    try:
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # Fetch all playlists
+            cursor.execute("SELECT playlist_id, name AS playlist_name, teachers_name FROM playlists")
+            playlists = cursor.fetchall()
+
+            # Prepare the response
+            response = []
+            for playlist in playlists:
+                response.append({
+                    "playlist_id": playlist['playlist_id'],
+                    "playlist_name": playlist['playlist_name'],
+                    "teachers_name": playlist['teachers_name']
+                })
+
+            return jsonify(response), 200
+
+    except Exception as e:
+        print("Error fetching playlists:", e)
+        return jsonify({"message": "Error fetching playlists"}), 500
+
+    finally:
+        connection.close()
+
+
+@app.route('/delete_playlist/<int:playlist_id>', methods=['DELETE'])
+def delete_playlist(playlist_id):
+    try:
+        # Establish a connection to the database
+        connection = pymysql.connect(**db_config)
+
+        with connection.cursor() as cursor:
+            # SQL statement to delete a playlist by ID
+            sql = "DELETE FROM playlists WHERE id = %s"
+            cursor.execute(sql, (playlist_id,))
+            connection.commit()
+            
+            if cursor.rowcount > 0:  # Check if any row was deleted
+                return jsonify({'message': 'Playlist deleted successfully.'}), 200
+            else:
+                return jsonify({'message': 'Playlist not found.'}), 404
+
+    except Exception as e:
+        # Handle any errors that occur during the process
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        # Ensure the connection is closed even if an error occurs
+        connection.close()
+        
+
