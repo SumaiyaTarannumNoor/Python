@@ -3234,5 +3234,37 @@ def delete_playlist(playlist_id):
     finally:
         # Ensure the connection is closed even if an error occurs
         connection.close()
+
+@app.route('/remove_video/<int:playlist_id>/<int:video_id>', methods=['DELETE'])
+def remove_video(playlist_id, video_id):
+    connection = None
+    try:
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # Check if the video exists in the playlist
+            cursor.execute("""
+                SELECT * FROM playlist_videos
+                WHERE playlist_id = %s AND video_id = %s
+            """, (playlist_id, video_id))
+            video_in_playlist = cursor.fetchone()
+            
+            if not video_in_playlist:
+                return jsonify({"message": "Video not found in the playlist"}), 404
+            
+            # Delete the video from the playlist
+            cursor.execute("""
+                DELETE FROM playlist_videos
+                WHERE playlist_id = %s AND video_id = %s
+            """, (playlist_id, video_id))
+            connection.commit()
+            
+            return jsonify({"message": "Video removed from the playlist"}), 200
+    except Exception as e:
+        # Log the error and return a generic error message
+        print(f"Error: {e}")
+        return jsonify({"message": "An error occurred while removing the video"}), 500
+    finally:
+        if connection:
+            connection.close()
         
 
