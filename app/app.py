@@ -3286,5 +3286,34 @@ def delete_playlist(playlist_id):
         if connection:
             connection.close()
 
-        
+
+@app.route('/edit_playlist/<int:playlist_id>', methods=['PUT'])
+def edit_playlist(playlist_id):
+    data = request.get_json()
+    playlist_name = data.get('playlist_name')
+    teachers_name = data.get('teachers_name')
+    teachers_about = data.get('teachers_about')
+
+    if not playlist_name:
+        return jsonify({"message": "Invalid data"}), 400
+
+    try:
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # Update playlist information
+            cursor.execute("""
+                UPDATE playlists
+                SET name = %s, teachers_name = %s, teachers_about = %s
+                WHERE playlist_id = %s
+            """, (playlist_name, teachers_name, teachers_about, playlist_id))
+            
+            connection.commit()
+
+        return jsonify({"message": "Playlist updated successfully!"}), 200
+    except Exception as e:
+        print("Error updating playlist:", e)
+        return jsonify({"message": "Error updating playlist"}), 500
+    finally:
+        connection.close()
+
 
