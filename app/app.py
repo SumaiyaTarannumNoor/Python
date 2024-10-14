@@ -3104,38 +3104,123 @@ def trainee_password_edit(trainee_id):
         except Exception as e:
             return jsonify({'error': f"Request error: {str(e)}"}), 500    
 
+# @app.route('/create_playlist', methods=['POST'])
+# def create_playlist():
+#     data = request.get_json()
+#     playlist_name = data.get('playlist_name')  # Update to match the key from JavaScript
+#     video_ids = data.get('video_ids')
+#     teachers_name = data.get('teachers_name')  # Fetch teachers_name from data
+#     teachers_about = data.get('teachers_about')  # Fetch teachers_about from data
+
+#     if not playlist_name or not video_ids:
+#         return jsonify({"message": "Invalid data"}), 400
+
+#     try:
+#         connection = pymysql.connect(**db_config)
+#         with connection.cursor() as cursor:
+#             # Insert playlist into playlists table
+#             cursor.execute("INSERT INTO playlists (name, teachers_name, teachers_about) VALUES (%s, %s, %s)", 
+#                            (playlist_name, teachers_name, teachers_about))
+#             playlist_id = cursor.lastrowid  # Get the last inserted playlist ID
+
+#             # Insert each video into the playlist_videos table
+#             for video_id in video_ids:
+#                 cursor.execute("INSERT INTO playlist_videos (playlist_id, video_id, teachers_name, teachers_about) VALUES (%s, %s, %s, %s)", 
+#                                (playlist_id, video_id, teachers_name, teachers_about))
+            
+#             connection.commit()
+
+#         return jsonify({"message": "Playlist created successfully!"}), 201
+#     except Exception as e:
+#         print("Error creating playlist:", e)
+#         return jsonify({"message": "Error creating playlist"}), 500
+#     finally:
+#         connection.close()
+
+
+###### New Route For Playlist Creation #########
 @app.route('/create_playlist', methods=['POST'])
 def create_playlist():
-    data = request.get_json()
-    playlist_name = data.get('playlist_name')  # Update to match the key from JavaScript
-    video_ids = data.get('video_ids')
-    teachers_name = data.get('teachers_name')  # Fetch teachers_name from data
-    teachers_about = data.get('teachers_about')  # Fetch teachers_about from data
-
-    if not playlist_name or not video_ids:
-        return jsonify({"message": "Invalid data"}), 400
-
     try:
-        connection = pymysql.connect(**db_config)
-        with connection.cursor() as cursor:
-            # Insert playlist into playlists table
-            cursor.execute("INSERT INTO playlists (name, teachers_name, teachers_about) VALUES (%s, %s, %s)", 
-                           (playlist_name, teachers_name, teachers_about))
-            playlist_id = cursor.lastrowid  # Get the last inserted playlist ID
+        data = request.get_json()
+        playlist_name = data.get('playlist_name')
+        video_ids = data.get('video_ids')
+        teachers_name = data.get('teachers_name')
+        teachers_about = data.get('teachers_about')
+        category = data.get('category')
+        playlist_about = data.get('playlist_about')
+        playlist_thumbnail = data.get('playlist_thumbnail')
 
-            # Insert each video into the playlist_videos table
-            for video_id in video_ids:
-                cursor.execute("INSERT INTO playlist_videos (playlist_id, video_id, teachers_name, teachers_about) VALUES (%s, %s, %s, %s)", 
-                               (playlist_id, video_id, teachers_name, teachers_about))
+        if not playlist_name or not video_ids:
+            return jsonify({"message": "Invalid data: playlist_name or video_ids missing"}), 400
+
+        # Handle playlist thumbnail
+        resized_thumbnail_data = None
+        if playlist_thumbnail and playlist_thumbnail.startswith('data:image/'):
+            header, image_data = playlist_thumbnail.split(',', 1)
+            mime_type = header.split(';')[0].split(':')[1]
+            if mime_type not in ['image/jpeg', 'image/png', 'image/jpg']:
+                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
+
+            # Decode base64 image
+            thumbnail_data = base64.b64decode(image_data)
+
+            # Resize image
+            image = Image.open(io.BytesIO(thumbnail_data))
+            image_format = image.format
+
+            def resize_image(image, max_size_kib):
+                output_io = io.BytesIO()
+                quality = 95
+                while True:
+                    output_io.seek(0)
+                    image.save(output_io, format=image_format, quality=quality)
+                    size = output_io.tell()
+                    if size <= max_size_kib * 1024 or quality <= 5:
+                        break
+                    quality -= 5
+                output_io.seek(0)
+                return output_io
+
+            resized_thumbnail_io = resize_image(image, 60)
+            resized_thumbnail_data = resized_thumbnail_io.read()
+
+        connection = pymysql.connect(**db_config)
+        try:
+            with connection.cursor() as cursor:
+                # Insert playlist into playlists table
+                cursor.execute(
+                    """INSERT INTO playlists 
+                       (name, teachers_name, teachers_about, category, playlist_about, playlist_thumbnail) 
+                       VALUES (%s, %s, %s, %s, %s, %s)""",
+                    (playlist_name, teachers_name, teachers_about, category, playlist_about, resized_thumbnail_data)
+                )
+                playlist_id = cursor.lastrowid
+
+                # Insert each video into the playlist_videos table
+                for video_id in video_ids:
+                    cursor.execute(
+                        """INSERT INTO playlist_videos 
+                           (playlist_id, video_id, teachers_name, teachers_about, playlist_name) 
+                           VALUES (%s, %s, %s, %s, %s)""",
+                        (playlist_id, video_id, teachers_name, teachers_about, playlist_name)
+                    )
             
             connection.commit()
+        except Exception as e:
+            connection.rollback()
+            raise e
+        finally:
+            connection.close()
 
         return jsonify({"message": "Playlist created successfully!"}), 201
+
+    except pymysql.Error as e:
+        print(f"Database error: {e}")
+        return jsonify({"message": f"Database error: {str(e)}"}), 500
     except Exception as e:
-        print("Error creating playlist:", e)
-        return jsonify({"message": "Error creating playlist"}), 500
-    finally:
-        connection.close()
+        print(f"Error creating playlist: {e}")
+        return jsonify({"message": f"Error creating playlist: {str(e)}"}), 500
 
 
 @app.route('/fetch_playlist/<int:playlist_id>', methods=['GET'])
