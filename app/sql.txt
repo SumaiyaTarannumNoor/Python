@@ -35,3 +35,8 @@ BEGIN
 END; //
 
 DELIMITER ;
+
+/////////////////////////////////////////////
+//////////////// DROP THE TRIGGER ///////////
+
+DROP TRIGGER IF EXISTS after_insert_playlist_video;
