@@ -1,0 +1,37 @@
+First_Part:
+ALTER TABLE playlist_videos
+ADD COLUMN playlist_name VARCHAR(255);
+
+Second_Part:
+UPDATE playlist_videos pv
+JOIN playlists p ON pv.playlist_id = p.playlist_id
+SET pv.playlist_name = p.name;
+
+
+Third_Part:
+DELIMITER //
+
+CREATE TRIGGER after_insert_playlist_video
+AFTER INSERT ON playlist_videos
+FOR EACH ROW
+BEGIN
+    DECLARE playlistName VARCHAR(255);
+    SELECT name INTO playlistName FROM playlists WHERE playlist_id = NEW.playlist_id;
+    UPDATE playlist_videos SET playlist_name = playlistName WHERE playlist_id = NEW.playlist_id AND video_id = NEW.video_id;
+END; //
+
+DELIMITER ;
+
+Fourth_Part:
+DELIMITER //
+
+CREATE TRIGGER after_update_playlist
+AFTER UPDATE ON playlists
+FOR EACH ROW
+BEGIN
+    UPDATE playlist_videos
+    SET playlist_name = NEW.name
+    WHERE playlist_id = OLD.playlist_id;
+END; //
+
+DELIMITER ;
