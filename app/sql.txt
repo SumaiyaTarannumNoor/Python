@@ -8,7 +8,7 @@ JOIN playlists p ON pv.playlist_id = p.playlist_id
 SET pv.playlist_name = p.name;
 
 
-Third_Part:
+Third_Part: after_inserting_playlist_video
 DELIMITER //
 
 CREATE TRIGGER after_insert_playlist_video
@@ -22,7 +22,7 @@ END; //
 
 DELIMITER ;
 
-Fourth_Part:
+Fourth_Part: after_updating_playlist
 DELIMITER //
 
 CREATE TRIGGER after_update_playlist
