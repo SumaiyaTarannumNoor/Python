@@ -3210,31 +3210,6 @@ def fetch_all_playlists():
     finally:
         connection.close()
 
-
-@app.route('/delete_playlist/<int:playlist_id>', methods=['DELETE'])
-def delete_playlist(playlist_id):
-    try:
-        # Establish a connection to the database
-        connection = pymysql.connect(**db_config)
-
-        with connection.cursor() as cursor:
-            # SQL statement to delete a playlist by ID
-            sql = "DELETE FROM playlists WHERE id = %s"
-            cursor.execute(sql, (playlist_id,))
-            connection.commit()
-            
-            if cursor.rowcount > 0:  # Check if any row was deleted
-                return jsonify({'message': 'Playlist deleted successfully.'}), 200
-            else:
-                return jsonify({'message': 'Playlist not found.'}), 404
-
-    except Exception as e:
-        # Handle any errors that occur during the process
-        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
-    finally:
-        # Ensure the connection is closed even if an error occurs
-        connection.close()
-
 @app.route('/remove_video/<int:playlist_id>/<int:video_id>', methods=['DELETE'])
 def remove_video(playlist_id, video_id):
     connection = None
@@ -3266,5 +3241,50 @@ def remove_video(playlist_id, video_id):
     finally:
         if connection:
             connection.close()
+
+@app.route('/delete_playlist/<int:playlist_id>', methods=['DELETE'])
+def delete_playlist(playlist_id):
+    connection = None
+    try:
+        # Establish a connection to the database
+        connection = pymysql.connect(**db_config)
+
+        with connection.cursor() as cursor:
+            # Check if the playlist exists
+            cursor.execute("""
+                SELECT * FROM playlists
+                WHERE playlist_id = %s
+            """, (playlist_id,))
+            playlist = cursor.fetchone()
+
+            if not playlist:
+                return jsonify({"message": "Playlist not found"}), 404
+
+            # Delete videos associated with the playlist
+            cursor.execute("""
+                DELETE FROM playlist_videos
+                WHERE playlist_id = %s
+            """, (playlist_id,))
+            connection.commit()
+
+            # Delete the playlist itself
+            cursor.execute("""
+                DELETE FROM playlists
+                WHERE playlist_id = %s
+            """, (playlist_id,))
+            connection.commit()
+
+            return jsonify({"message": "Playlist and associated videos deleted successfully."}), 200
+
+    except Exception as e:
+        # Handle any errors that occur during the process
+        print("Error deleting playlist:", e)
+        return jsonify({"message": "An error occurred while deleting the playlist.", "error": str(e)}), 500
+
+    finally:
+        # Ensure the connection is closed even if an error occurs
+        if connection:
+            connection.close()
+
         
 
