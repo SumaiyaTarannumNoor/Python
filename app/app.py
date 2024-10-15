@@ -989,6 +989,45 @@ def fetch_seminers_last_two():
     finally:
         connection.close()        
 
+# @app.route('/course_video_upload', methods=['POST'])
+# def course_video_upload():
+#     data = request.get_json()
+#     course_link = data.get('course_link')
+#     course_title = data.get('course_title')
+#     course_details = data.get('course_details')
+#     course_category = data.get('course_category')
+
+#     if course_link and course_title and course_details and course_category:
+#         try:
+#             # Connect to the database
+#             connection = pymysql.connect(**db_config)
+
+#             try:
+#                 with connection.cursor() as cursor:
+#                     sql_insert_course = '''
+#                     INSERT INTO video_courses (course_link, course_title, course_details, course_category)
+#                     VALUES (%s, %s, %s, %s)
+#                     '''
+#                     cursor.execute(sql_insert_course, (course_link, course_title, course_details, course_category))
+
+#                 # Commit changes
+#                 connection.commit()
+
+#                 return jsonify({"message": "Post successful"}), 200
+
+#             except Exception as e:
+#                 print(f"Error processing request: {str(e)}")
+#                 return jsonify({"message": "An error occurred. Please try again."}), 500
+
+#             finally:
+#                 connection.close()
+
+#         except Exception as e:
+#             print(f"Error processing request: {str(e)}")
+#             return jsonify({"message": "An error occurred. Please try again."}), 500
+
+#     return jsonify({"message": "Invalid input or request processing failed."}), 400
+
 @app.route('/course_video_upload', methods=['POST'])
 def course_video_upload():
     data = request.get_json()
@@ -996,6 +1035,8 @@ def course_video_upload():
     course_title = data.get('course_title')
     course_details = data.get('course_details')
     course_category = data.get('course_category')
+    teachers_name = data.get('teachers_name')  # Corrected variable name
+    teachers_about = data.get('teachers_about')  # Corrected variable name
 
     if course_link and course_title and course_details and course_category:
         try:
@@ -1005,10 +1046,10 @@ def course_video_upload():
             try:
                 with connection.cursor() as cursor:
                     sql_insert_course = '''
-                    INSERT INTO video_courses (course_link, course_title, course_details, course_category)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO video_courses (course_link, course_title, course_details, course_category, teachers_name, teachers_about)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     '''
-                    cursor.execute(sql_insert_course, (course_link, course_title, course_details, course_category))
+                    cursor.execute(sql_insert_course, (course_link, course_title, course_details, course_category, teachers_name, teachers_about))
 
                 # Commit changes
                 connection.commit()
