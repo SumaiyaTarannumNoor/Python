@@ -3586,33 +3586,111 @@ def delete_playlist(playlist_id):
             connection.close()
 
 
-@app.route('/edit_playlist/<int:playlist_id>', methods=['PUT'])
-def edit_playlist(playlist_id):
-    data = request.get_json()
-    playlist_name = data.get('playlist_name')
-    teachers_name = data.get('teachers_name')
-    teachers_about = data.get('teachers_about')
+# @app.route('/edit_playlist/<int:playlist_id>', methods=['PUT'])
+# def edit_playlist(playlist_id):
+#     data = request.get_json()
+#     playlist_name = data.get('playlist_name')
+#     teachers_name = data.get('teachers_name')
+#     teachers_about = data.get('teachers_about')
 
-    if not playlist_name:
-        return jsonify({"message": "Invalid data"}), 400
+#     if not playlist_name:
+#         return jsonify({"message": "Invalid data"}), 400
 
-    try:
-        connection = pymysql.connect(**db_config)
-        with connection.cursor() as cursor:
-            # Update playlist information
-            cursor.execute("""
-                UPDATE playlists
-                SET name = %s, teachers_name = %s, teachers_about = %s
-                WHERE playlist_id = %s
-            """, (playlist_name, teachers_name, teachers_about, playlist_id))
+#     try:
+#         connection = pymysql.connect(**db_config)
+#         with connection.cursor() as cursor:
+#             # Update playlist information
+#             cursor.execute("""
+#                 UPDATE playlists
+#                 SET name = %s, teachers_name = %s, teachers_about = %s
+#                 WHERE playlist_id = %s
+#             """, (playlist_name, teachers_name, teachers_about, playlist_id))
             
-            connection.commit()
+#             connection.commit()
 
-        return jsonify({"message": "Playlist updated successfully!"}), 200
-    except Exception as e:
-        print("Error updating playlist:", e)
-        return jsonify({"message": "Error updating playlist"}), 500
-    finally:
-        connection.close()
+#         return jsonify({"message": "Playlist updated successfully!"}), 200
+#     except Exception as e:
+#         print("Error updating playlist:", e)
+#         return jsonify({"message": "Error updating playlist"}), 500
+#     finally:
+#         connection.close()
+@app.route('/edit_playlist/<int:playlist_id>', methods=['GET', 'POST'])
+def edit_playlist(playlist_id):
+    # Connect to the database
+    connection = pymysql.connect(**db_config)
+    
+    if request.method == 'GET':
+        try:
+            with connection.cursor() as cursor:
+                sql_fetch_playlist = '''
+                SELECT name, teachers_name, teachers_about, category, playlist_about, playlist_thumbnail
+                FROM playlists
+                WHERE playlist_id = %s
+                '''
+                cursor.execute(sql_fetch_playlist, (playlist_id,))
+                playlist = cursor.fetchone()
+                if playlist:
+                    return jsonify({
+                        'playlist_id': playlist_id,
+                        'playlist_name': playlist[0],
+                        'teachers_name': playlist[1],
+                        'teachers_about': playlist[2],
+                        'category': playlist[3],
+                        'playlist_about': playlist[4],
+                        'playlist_thumbnail': base64.b64encode(playlist[5]).decode() if playlist[5] else None,
+                    })
+                else:
+                    return jsonify({'message': 'Playlist not found'}), 404
+        except Exception as e:
+            return jsonify({'message': str(e)}), 500
+        finally:
+            connection.close()
+    
+    elif request.method == 'POST':
+        data = request.json
+        try:
+            with connection.cursor() as cursor:
+                # Prepare data for updating
+                name = data['playlist_name']
+                about = data['playlist_about']
+                teachers_name = data['teachers_name']
+                teachers_about = data['teachers_about']
+                category = data['category']
+                thumbnail_data = data.get('playlist_thumbnail')
+                
+                if thumbnail_data:
+                    # Decode base64 string to bytes
+                    image_data = base64.b64decode(thumbnail_data)
+                    image = Image.open(io.BytesIO(image_data))
+                    
+                    # Convert image to RGB mode if it's RGBA
+                    if image.mode == 'RGBA':
+                        image = image.convert('RGB')
+                    
+                    image = image.resize((300, 300))  # Resize image to desired dimensions
+                    img_io = io.BytesIO()
+                    image.save(img_io, format='JPEG', quality=85)  # Save image as JPEG
+                    img_io.seek(0)
+                    thumbnail_data = img_io.getvalue()
+                else:
+                    thumbnail_data = None  # No new thumbnail uploaded
+                
+                # SQL query to update playlist
+                sql_update_playlist = '''
+                UPDATE playlists
+                SET name = %s, teachers_name = %s, teachers_about = %s, category = %s, playlist_about = %s, 
+                    playlist_thumbnail = IF(%s IS NULL, playlist_thumbnail, %s)
+                WHERE playlist_id = %s
+                '''
+                cursor.execute(sql_update_playlist, (name, teachers_name, teachers_about, category, about, 
+                                                     thumbnail_data, thumbnail_data, playlist_id))
+                connection.commit()
+                
+                return jsonify({'message': 'Playlist updated successfully'})
+        except Exception as e:
+            connection.rollback()
+            return jsonify({'message': str(e)}), 500
+        finally:
+            connection.close()
 
 
