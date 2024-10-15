@@ -3464,20 +3464,74 @@ def fetch_playlist(playlist_id):
         connection.close()
 
 
+# @app.route('/fetch_all_playlists', methods=['GET'])
+# def fetch_all_playlists():
+#     try:
+#         connection = pymysql.connect(**db_config)
+#         with connection.cursor() as cursor:
+#             # Fetch all playlists with their first video URL and thumbnail
+#             cursor.execute("""
+#                 SELECT p.playlist_id, p.name AS playlist_name, p.teachers_name, p.teachers_about,
+#                        p.category, p.playlist_about, p.playlist_thumbnail, MIN(vc.course_link) AS first_video_url
+#                 FROM playlists p
+#                 LEFT JOIN playlist_videos pv ON p.playlist_id = pv.playlist_id
+#                 LEFT JOIN video_courses vc ON pv.video_id = vc.course_id
+#                 GROUP BY p.playlist_id
+#             """)
+#             playlists = cursor.fetchall()
+
+#             # Prepare the response
+#             response = []
+#             for playlist in playlists:
+#                 thumbnail = None
+#                 if playlist['playlist_thumbnail']:
+#                     thumbnail = f"data:image/jpeg;base64,{base64.b64encode(playlist['playlist_thumbnail']).decode()}"
+
+#                 response.append({
+#                     "playlist_id": playlist['playlist_id'],
+#                     "playlist_name": playlist['playlist_name'],
+#                     "teachers_name": playlist['teachers_name'],
+#                     "teachers_about": playlist['teachers_about'],
+#                     "category": playlist['category'],
+#                     "playlist_about": playlist['playlist_about'],
+#                     "first_video_url": playlist['first_video_url'],
+#                     "playlist_thumbnail": thumbnail
+#                 })
+
+#             return jsonify(response), 200
+
+#     except Exception as e:
+#         print("Error fetching playlists:", e)
+#         return jsonify({"message": "Error fetching playlists"}), 500
+
+#     finally:
+#         connection.close()
+
 @app.route('/fetch_all_playlists', methods=['GET'])
 def fetch_all_playlists():
     try:
+        # Get the search query from the request parameters
+        search_query = request.args.get('query', '')
+
         connection = pymysql.connect(**db_config)
         with connection.cursor() as cursor:
-            # Fetch all playlists with their first video URL and thumbnail
+            # Prepare the search term for playlists
+            wildcard_search = f"%{search_query}%"
+
+            # Fetch all playlists with their first video URL and thumbnail, filtered by search query
             cursor.execute("""
                 SELECT p.playlist_id, p.name AS playlist_name, p.teachers_name, p.teachers_about,
                        p.category, p.playlist_about, p.playlist_thumbnail, MIN(vc.course_link) AS first_video_url
                 FROM playlists p
                 LEFT JOIN playlist_videos pv ON p.playlist_id = pv.playlist_id
                 LEFT JOIN video_courses vc ON pv.video_id = vc.course_id
+                WHERE p.name LIKE %s
+                   OR p.teachers_name LIKE %s
+                   OR p.teachers_about LIKE %s
+                   OR p.category LIKE %s
+                   OR p.playlist_about LIKE %s
                 GROUP BY p.playlist_id
-            """)
+            """, (wildcard_search, wildcard_search, wildcard_search, wildcard_search, wildcard_search))
             playlists = cursor.fetchall()
 
             # Prepare the response
@@ -3502,11 +3556,11 @@ def fetch_all_playlists():
 
     except Exception as e:
         print("Error fetching playlists:", e)
-        return jsonify({"message": "Error fetching playlists"}), 500
+        return jsonify({"message": "Error fetching playlists", "error": str(e)}), 500
 
     finally:
-        connection.close()
-
+        if 'connection' in locals():
+            connection.close()
 
 
 @app.route('/remove_video/<int:playlist_id>/<int:video_id>', methods=['DELETE'])
