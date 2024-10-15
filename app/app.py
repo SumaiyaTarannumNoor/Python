@@ -1070,6 +1070,73 @@ def course_video_upload():
     return jsonify({"message": "Invalid input or request processing failed."}), 400
 
 
+# @app.route('/course_video_edit/<int:course_id>', methods=['GET', 'POST'])
+# def course_video_edit(course_id):
+#     # Connect to the database
+#     connection = pymysql.connect(**db_config)
+
+#     if request.method == 'GET':
+#         try:
+#             with connection.cursor() as cursor:
+#                 sql_fetch_course = '''
+#                 SELECT course_link, course_title, course_category, course_details
+#                 FROM video_courses
+#                 WHERE course_id = %s
+#                 '''
+#                 cursor.execute(sql_fetch_course, (course_id,))
+#                 course = cursor.fetchone()
+
+#                 if course:
+#                     return jsonify({
+#                         "course_link": course[0],
+#                         "course_title": course[1],
+#                         "course_category": course[2],
+#                         "course_details": course[3]
+#                     }), 200
+#                 else:
+#                     return jsonify({"message": "No course found with the given ID."}), 404
+
+#         except Exception as e:
+#             print(f"Error fetching course: {str(e)}")
+#             return jsonify({"message": "An error occurred while fetching the course."}), 500
+
+#         finally:
+#             connection.close()
+
+#     elif request.method == 'POST':
+#         data = request.get_json()
+#         course_link = data.get('course_link')
+#         course_title = data.get('course_title')
+#         course_category = data.get('course_category')
+#         course_details = data.get('course_details')
+
+#         if course_link and course_title and course_category and course_details:
+#             try:
+#                 with connection.cursor() as cursor:
+#                     sql_update_course = '''
+#                     UPDATE video_courses
+#                     SET course_link = %s, course_title = %s, course_category = %s, course_details = %s
+#                     WHERE course_id = %s
+#                     '''
+#                     cursor.execute(sql_update_course, (course_link, course_title, course_category, course_details, course_id))
+
+#                 # Commit changes
+#                 connection.commit()
+
+#                 if cursor.rowcount == 0:
+#                     return jsonify({"message": "No course found with the given ID."}), 404
+
+#                 return jsonify({"message": "Course updated successfully"}), 200
+
+#             except Exception as e:
+#                 print(f"Error processing request: {str(e)}")
+#                 return jsonify({"message": "An error occurred. Please try again."}), 500
+
+#             finally:
+#                 connection.close()
+
+#     return jsonify({"message": "Invalid input or request processing failed."}), 400
+
 @app.route('/course_video_edit/<int:course_id>', methods=['GET', 'POST'])
 def course_video_edit(course_id):
     # Connect to the database
@@ -1079,7 +1146,7 @@ def course_video_edit(course_id):
         try:
             with connection.cursor() as cursor:
                 sql_fetch_course = '''
-                SELECT course_link, course_title, course_category, course_details
+                SELECT course_link, course_title, course_category, course_details, teachers_name, teachers_about
                 FROM video_courses
                 WHERE course_id = %s
                 '''
@@ -1091,7 +1158,9 @@ def course_video_edit(course_id):
                         "course_link": course[0],
                         "course_title": course[1],
                         "course_category": course[2],
-                        "course_details": course[3]
+                        "course_details": course[3],
+                        "teachers_name": course[4],  # Added teachers_name
+                        "teachers_about": course[5]   # Added teachers_about
                     }), 200
                 else:
                     return jsonify({"message": "No course found with the given ID."}), 404
@@ -1109,16 +1178,19 @@ def course_video_edit(course_id):
         course_title = data.get('course_title')
         course_category = data.get('course_category')
         course_details = data.get('course_details')
+        teachers_name = data.get('teachers_name')  # Added teachers_name
+        teachers_about = data.get('teachers_about')  # Added teachers_about
 
         if course_link and course_title and course_category and course_details:
             try:
                 with connection.cursor() as cursor:
                     sql_update_course = '''
                     UPDATE video_courses
-                    SET course_link = %s, course_title = %s, course_category = %s, course_details = %s
+                    SET course_link = %s, course_title = %s, course_category = %s, 
+                        course_details = %s, teachers_name = %s, teachers_about = %s
                     WHERE course_id = %s
                     '''
-                    cursor.execute(sql_update_course, (course_link, course_title, course_category, course_details, course_id))
+                    cursor.execute(sql_update_course, (course_link, course_title, course_category, course_details, teachers_name, teachers_about, course_id))
 
                 # Commit changes
                 connection.commit()
