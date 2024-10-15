@@ -3614,6 +3614,8 @@ def delete_playlist(playlist_id):
 #         return jsonify({"message": "Error updating playlist"}), 500
 #     finally:
 #         connection.close()
+
+
 @app.route('/edit_playlist/<int:playlist_id>', methods=['GET', 'POST'])
 def edit_playlist(playlist_id):
     # Connect to the database
