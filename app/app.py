@@ -3750,3 +3750,92 @@ def edit_playlist(playlist_id):
             connection.close()
 
 
+########################################################################################################
+########################################################################################################
+##################### T E A C H E R S  P A N E L #######################################################
+            
+@app.route('/T_Signup', methods=['POST'])
+def T_Signup():
+    # Extract form data
+    name = request.form.get('name')
+    email = request.form.get('email')
+    phone_number = request.form.get('phone-number')
+    educational_institution_level_passing_year = request.form.get('educational-institution-level-passing-year')
+    skills = request.form.get('skills')
+    experiences = request.form.get('experiences')
+    image_upload = request.files.get('image-upload')
+    password = request.form.get('password')
+
+    # Handle image upload and resizing
+    image_data = None
+    default_image_path = 'static/assets/profile_avatar/avatar.jpg'
+
+    try:
+        if image_upload:
+            # Check if the uploaded file is an image
+            if image_upload.content_type not in ['image/jpeg', 'image/png', 'image/jpg']:
+                return jsonify({"message": "Unsupported image format. Only JPG, JPEG, and PNG are allowed."}), 400
+
+            # Open the image and resize it
+            image = Image.open(image_upload)
+
+            # Function to resize image to be under 60KB
+            def resize_image(image, max_size_kib):
+                output_io = io.BytesIO()
+                quality = 95
+                while True:
+                    output_io.seek(0)
+                    image.save(output_io, format=image.format, quality=quality)
+                    size = output_io.tell()
+                    if size <= max_size_kib * 1024 or quality <= 5:
+                        break
+                    quality -= 5
+                output_io.seek(0)
+                return output_io
+
+            resized_image_io = resize_image(image, 60)
+            image_data = resized_image_io.read()
+
+        else:
+            # Load default image if none is uploaded
+            with open(default_image_path, 'rb') as f:
+                image_data = f.read()
+
+        # Connect to the database and perform operations
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # Check if the email is already registered
+            check_email_sql = "SELECT COUNT(*) AS count FROM teachers WHERE email = %s"
+            cursor.execute(check_email_sql, (email,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                return jsonify({"message": "Email is already registered"}), 400
+            else:
+                # Insert the new teacher into the database
+                sql = """
+                    INSERT INTO teachers (name, email, phone_number, educational_institution_level_passing_year, skills, experiences, profile_picture, password)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                cursor.execute(sql, (
+                    name,
+                    email,
+                    phone_number,
+                    educational_institution_level_passing_year,
+                    skills,
+                    experiences,
+                    image_data,
+                    password
+                ))
+            connection.commit()
+
+    except Exception as e:
+        # Print the error to console for debugging
+        print(e)
+        return jsonify({"message": "An error occurred!", "error": str(e)}), 500
+    finally:
+        connection.close()
+
+    return jsonify({"message": "Signup successful"}), 200
+
+
+
