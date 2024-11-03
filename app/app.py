@@ -3838,4 +3838,104 @@ def T_Signup():
     return jsonify({"message": "Signup successful"}), 200
 
 
+####################################################################################
+############################## COURSE ADD ##########################################
+
+@app.route('/purchase_course', methods=['POST'])
+@login_required
+def purchase_course():
+    print("Session Data:", session)  # Log session data
+    
+    # Ensure the user is logged in
+    if 'logged_in' not in session or not session['logged_in']:
+        return jsonify({'error': 'Unauthorized access'}), 403
+    
+    # Get the user email from the session
+    user_email = session.get('user_email')  # Change 'email' to 'user_email'
+    if not user_email:
+        return jsonify({'error': 'User email not found in session'}), 403
+    
+    # Get the playlist_id from the request data
+    data = request.json
+    playlist_id = data.get('playlist_id')
+    
+    if not playlist_id:
+        return jsonify({'error': 'Playlist ID is required'}), 400
+    
+    try:
+        # Database connection setup
+        connection = pymysql.connect(**db_config)
+        
+        with connection.cursor() as cursor:
+            # Fetch the student_id using the email from the session
+            cursor.execute("SELECT student_id FROM student_signup WHERE Email = %s", (user_email,))
+            student_record = cursor.fetchone()
+            
+            if not student_record:
+                return jsonify({'error': 'Student not found'}), 404
+            
+            student_id = student_record['student_id']
+            
+            # Check if the course has already been purchased by the student
+            cursor.execute("""SELECT purchase_id FROM course_purchases 
+                              WHERE student_id = %s AND playlist_id = %s""", 
+                           (student_id, playlist_id))
+            
+            if cursor.fetchone():
+                return jsonify({'message': 'Course already purchased'}), 200
+            
+            # Insert a new record into course_purchases
+            cursor.execute("""INSERT INTO course_purchases (student_id, playlist_id) 
+                              VALUES (%s, %s)""", 
+                           (student_id, playlist_id))
+            
+            # Fetch all buyers of this playlist to update the user_bought field in playlists
+            cursor.execute("""SELECT GROUP_CONCAT(student_id) as buyers 
+                              FROM course_purchases 
+                              WHERE playlist_id = %s 
+                              GROUP BY playlist_id""", 
+                           (playlist_id,))
+            buyers_record = cursor.fetchone()
+            buyers = buyers_record['buyers'] if buyers_record else ''
+            
+            if buyers:
+                # Update the playlists table with the list of buyers
+                cursor.execute("""UPDATE playlists 
+                                  SET user_bought = %s 
+                                  WHERE playlist_id = %s""", 
+                               (buyers, playlist_id))
+            
+            # Fetch all purchased courses for this student
+            cursor.execute("""SELECT GROUP_CONCAT(playlist_id) as purchased_courses 
+                              FROM course_purchases 
+                              WHERE student_id = %s""", 
+                           (student_id,))
+            purchased_courses_record = cursor.fetchone()
+            purchased_courses = purchased_courses_record['purchased_courses'] if purchased_courses_record else ''
+            
+            # Commit all changes to the database
+            connection.commit()
+            
+            return jsonify({
+                'success': 'Course purchased successfully!',
+                'student_id': student_id,
+                'purchased_courses': purchased_courses,
+                'course_buyers': buyers
+            }), 200
+    
+    except pymysql.MySQLError as e:
+        print(f"Database error: {str(e)}")
+        return jsonify({'error': 'Database operation failed'}), 500
+    
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        return jsonify({'error': 'An unexpected error occurred'}), 500
+    
+    finally:
+        # Ensure the connection is properly closed
+        if 'connection' in locals() and connection:
+            connection.close()
+
+
+
 
