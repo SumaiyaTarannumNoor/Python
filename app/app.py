@@ -3839,7 +3839,7 @@ def T_Signup():
 
 
 ####################################################################################
-############################## COURSE ADD ##########################################
+############################## Purchase Course ##########################################
 
 @app.route('/purchase_course', methods=['POST'])
 @login_required
@@ -3905,6 +3905,12 @@ def purchase_course():
                                   WHERE playlist_id = %s""", 
                                (buyers, playlist_id))
             
+            # Update playlist_id column in student_signup table
+            cursor.execute("""UPDATE student_signup 
+                              SET playlist_id = %s 
+                              WHERE student_id = %s""", 
+                           (playlist_id, student_id))
+            
             # Fetch all purchased courses for this student
             cursor.execute("""SELECT GROUP_CONCAT(playlist_id) as purchased_courses 
                               FROM course_purchases 
@@ -3935,7 +3941,3 @@ def purchase_course():
         # Ensure the connection is properly closed
         if 'connection' in locals() and connection:
             connection.close()
-
-
-
-
