@@ -3946,3 +3946,63 @@ def purchase_course():
         # Ensure the connection is properly closed
         if 'connection' in locals() and connection:
             connection.close()
+
+
+@app.route('/is_purchased', methods=['GET'])
+@login_required
+def is_purchased():
+    # Ensure the user is logged in and has a user_email in session
+    if 'logged_in' not in session or not session['logged_in']:
+        return jsonify({'error': 'Unauthorized access'}), 403
+    
+    # Get the user email from the session
+    user_email = session.get('user_email')
+    if not user_email:
+        return jsonify({'error': 'User email not found in session'}), 403
+    
+    # Get the playlist_id from the request arguments
+    playlist_id = request.args.get('playlist_id')
+    
+    if not playlist_id:
+        return jsonify({'error': 'Playlist ID is required'}), 400
+    
+    try:
+        # Database connection setup
+        connection = pymysql.connect(**db_config)
+        
+        with connection.cursor() as cursor:
+            # Fetch the student_id using the email from the session
+            cursor.execute("SELECT student_id FROM student_signup WHERE Email = %s", (user_email,))
+            student_record = cursor.fetchone()
+            
+            if not student_record:
+                return jsonify({'error': 'Student not found'}), 404
+            
+            student_id = student_record['student_id']
+            
+            # Check if the course has been purchased by the student
+            cursor.execute("""SELECT 1 FROM course_purchases 
+                              WHERE student_id = %s AND playlist_id = %s""", 
+                           (student_id, playlist_id))
+            
+            # If a record is found, send "yes" indicating the course is purchased
+            if cursor.fetchone():
+                return jsonify({'message': 'yes'}), 200
+            
+            # If no record is found, send "no" indicating the course is not purchased
+            return jsonify({'message': 'no'}), 200
+    
+    except pymysql.MySQLError as e:
+        print(f"Database error: {str(e)}")
+        return jsonify({'error': 'Database operation failed'}), 500
+    
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        return jsonify({'error': 'An unexpected error occurred'}), 500
+    
+    finally:
+        # Ensure the connection is properly closed
+        if 'connection' in locals() and connection:
+            connection.close()
+
+
