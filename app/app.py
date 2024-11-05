@@ -3857,7 +3857,7 @@ def purchase_course():
     
     # Get the playlist_id from the request data
     data = request.json
-    playlist_id = data.get('playlist_id')
+    playlist_id = data.get('playlist_id')  # Expecting a single playlist ID
     
     if not playlist_id:
         return jsonify({'error': 'Playlist ID is required'}), 400
@@ -3898,26 +3898,31 @@ def purchase_course():
             buyers_record = cursor.fetchone()
             buyers = buyers_record['buyers'] if buyers_record else ''
             
-            if buyers:
-                # Update the playlists table with the list of buyers
-                cursor.execute("""UPDATE playlists 
-                                  SET user_bought = %s 
-                                  WHERE playlist_id = %s""", 
-                               (buyers, playlist_id))
+            # Update the playlists table with the list of buyers
+            cursor.execute("""UPDATE playlists 
+                              SET user_bought = %s 
+                              WHERE playlist_id = %s""", 
+                           (buyers, playlist_id))
             
             # Update playlist_id column in student_signup table
+            # Fetch the existing playlist_ids
+            cursor.execute("""SELECT playlist_id FROM student_signup 
+                              WHERE student_id = %s""", 
+                           (student_id,))
+            existing_playlist_ids_record = cursor.fetchone()
+            existing_playlist_ids = existing_playlist_ids_record['playlist_id'] if existing_playlist_ids_record else ''
+            
+            # If there are existing playlist_ids, append the new one
+            if existing_playlist_ids:
+                new_playlist_ids = f"{existing_playlist_ids},{playlist_id}"
+            else:
+                new_playlist_ids = str(playlist_id)
+            
+            # Update the playlist_id in student_signup
             cursor.execute("""UPDATE student_signup 
                               SET playlist_id = %s 
                               WHERE student_id = %s""", 
-                           (playlist_id, student_id))
-            
-            # Fetch all purchased courses for this student
-            cursor.execute("""SELECT GROUP_CONCAT(playlist_id) as purchased_courses 
-                              FROM course_purchases 
-                              WHERE student_id = %s""", 
-                           (student_id,))
-            purchased_courses_record = cursor.fetchone()
-            purchased_courses = purchased_courses_record['purchased_courses'] if purchased_courses_record else ''
+                           (new_playlist_ids, student_id))
             
             # Commit all changes to the database
             connection.commit()
@@ -3925,7 +3930,7 @@ def purchase_course():
             return jsonify({
                 'success': 'Course purchased successfully!',
                 'student_id': student_id,
-                'purchased_courses': purchased_courses,
+                'purchased_playlist_id': new_playlist_ids,
                 'course_buyers': buyers
             }), 200
     
