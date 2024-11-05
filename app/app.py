@@ -4006,3 +4006,96 @@ def is_purchased():
             connection.close()
 
 
+
+#################################################################################
+######################### Fetching Individuals Courses ##########################
+@app.route('/fetch_users_playlist', methods=['GET'])
+@login_required
+def fetch_users_playlist():
+    try:
+        # Ensure user is logged in and has email in session
+        if 'logged_in' not in session or not session['logged_in'] or 'user_email' not in session:
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        user_email = session['user_email']
+        search_query = request.args.get('query', '')
+        
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # First, get the user's playlist_ids from student_signup
+            cursor.execute("""
+                SELECT playlist_id 
+                FROM student_signup 
+                WHERE Email = %s 
+                AND playlist_id IS NOT NULL
+            """, (user_email,))
+            
+            result = cursor.fetchone()
+            if not result or not result['playlist_id']:
+                return jsonify([]), 200
+                
+            # Split the playlist_ids string into a list
+            user_playlist_ids = result['playlist_id'].split(',')
+            
+            # Create placeholders for SQL IN clause
+            placeholders = ', '.join(['%s'] * len(user_playlist_ids))
+            
+            # Prepare the search term
+            wildcard_search = f"%{search_query}%"
+            
+            # Fetch only the playlists that the user has purchased
+            query = f"""
+                SELECT p.playlist_id, p.name AS playlist_name, p.teachers_name, 
+                       p.teachers_about, p.category, p.playlist_about, 
+                       p.playlist_thumbnail, MIN(vc.course_link) AS first_video_url
+                FROM playlists p
+                LEFT JOIN playlist_videos pv ON p.playlist_id = pv.playlist_id
+                LEFT JOIN video_courses vc ON pv.video_id = vc.course_id
+                WHERE p.playlist_id IN ({placeholders})
+                AND (
+                    p.name LIKE %s
+                    OR p.teachers_name LIKE %s
+                    OR p.teachers_about LIKE %s
+                    OR p.category LIKE %s
+                    OR p.playlist_about LIKE %s
+                )
+                GROUP BY p.playlist_id
+            """
+            
+            # Create parameters list for the query
+            params = user_playlist_ids + [wildcard_search] * 5
+            
+            # Execute the query
+            cursor.execute(query, params)
+            playlists = cursor.fetchall()
+            
+            # Prepare the response
+            response = []
+            for playlist in playlists:
+                thumbnail = None
+                if playlist['playlist_thumbnail']:
+                    thumbnail = f"data:image/jpeg;base64,{base64.b64encode(playlist['playlist_thumbnail']).decode()}"
+                
+                response.append({
+                    "playlist_id": playlist['playlist_id'],
+                    "playlist_name": playlist['playlist_name'],
+                    "teachers_name": playlist['teachers_name'],
+                    "teachers_about": playlist['teachers_about'],
+                    "category": playlist['category'],
+                    "playlist_about": playlist['playlist_about'],
+                    "first_video_url": playlist['first_video_url'],
+                    "playlist_thumbnail": thumbnail
+                })
+            
+            return jsonify(response), 200
+            
+    except Exception as e:
+        print("Error fetching user's playlists:", e)
+        return jsonify({
+            "message": "Error fetching user's playlists", 
+            "error": str(e)
+        }), 500
+        
+    finally:
+        if 'connection' in locals():
+            connection.close()
