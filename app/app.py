@@ -4154,7 +4154,7 @@ def fetch_user_total_playlist_count():
 
 
 ###################################################################################
-############################ Course Pregress ######################################
+############################ Course Progress ######################################
 @app.route('/mark_course_finished', methods=['POST'])
 @login_required
 def mark_course_finished():
@@ -4167,9 +4167,10 @@ def mark_course_finished():
     if not user_email:
         return jsonify({'error': 'User email not found in session'}), 403
 
-    # Get the playlist_id from the request data
+    # Get the playlist_id from the request data (expecting a single playlist ID)
     data = request.json
-    playlist_id = data.get('playlist_id')
+    playlist_id = data.get('playlist_id')  # Expecting a single playlist ID
+    
     if not playlist_id:
         return jsonify({'error': 'Playlist ID is required'}), 400
 
@@ -4187,22 +4188,23 @@ def mark_course_finished():
             # Get existing finished_courses and append the new playlist_id if needed
             existing_courses = record['finished_courses'] if record['finished_courses'] else ''
             if existing_courses:
-                # Only append if the playlist_id is not already in the list
+                # Split the existing courses into a list
                 finished_courses_list = existing_courses.split(',')
-                if playlist_id not in finished_courses_list:
-                    finished_courses_list.append(playlist_id)
-                    new_finished_courses = ','.join(finished_courses_list)
-                else:
-                    return jsonify({'message': 'Course already marked as finished'}), 200
+                # Add the new playlist_id if it's not already in the list
+                if str(playlist_id) not in finished_courses_list:
+                    finished_courses_list.append(str(playlist_id))
             else:
-                new_finished_courses = playlist_id
+                finished_courses_list = [str(playlist_id)]
+
+            # Convert the list back to a comma-separated string
+            new_finished_courses = ','.join(finished_courses_list)
             
             # Update the finished_courses column
             cursor.execute("UPDATE student_signup SET finished_courses = %s WHERE Email = %s", (new_finished_courses, user_email))
             
             # Commit changes to the database
             connection.commit()
-            
+
             return jsonify({
                 'success': 'Course marked as finished!',
                 'finished_courses': new_finished_courses
@@ -4220,4 +4222,3 @@ def mark_course_finished():
         # Ensure the connection is properly closed
         if 'connection' in locals() and connection:
             connection.close()
-
