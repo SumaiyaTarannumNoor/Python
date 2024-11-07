@@ -4151,3 +4151,73 @@ def fetch_user_total_playlist_count():
         # Ensure the connection is properly closed
         if 'connection' in locals() and connection:
             connection.close()
+
+
+###################################################################################
+############################ Course Pregress ######################################
+@app.route('/mark_course_finished', methods=['POST'])
+@login_required
+def mark_course_finished():
+    # Check if the user is logged in
+    if 'logged_in' not in session or not session['logged_in']:
+        return jsonify({'error': 'Unauthorized access'}), 403
+
+    # Get the user email from the session
+    user_email = session.get('user_email')
+    if not user_email:
+        return jsonify({'error': 'User email not found in session'}), 403
+
+    # Get the playlist_id from the request data
+    data = request.json
+    playlist_id = data.get('playlist_id')
+    if not playlist_id:
+        return jsonify({'error': 'Playlist ID is required'}), 400
+
+    try:
+        # Database connection setup
+        connection = pymysql.connect(**db_config)
+        
+        with connection.cursor() as cursor:
+            # Check if user exists in the student_signup table
+            cursor.execute("SELECT finished_courses FROM student_signup WHERE Email = %s", (user_email,))
+            record = cursor.fetchone()
+            if not record:
+                return jsonify({'error': 'Student not found'}), 404
+
+            # Get existing finished_courses and append the new playlist_id if needed
+            existing_courses = record['finished_courses'] if record['finished_courses'] else ''
+            if existing_courses:
+                # Only append if the playlist_id is not already in the list
+                finished_courses_list = existing_courses.split(',')
+                if playlist_id not in finished_courses_list:
+                    finished_courses_list.append(playlist_id)
+                    new_finished_courses = ','.join(finished_courses_list)
+                else:
+                    return jsonify({'message': 'Course already marked as finished'}), 200
+            else:
+                new_finished_courses = playlist_id
+            
+            # Update the finished_courses column
+            cursor.execute("UPDATE student_signup SET finished_courses = %s WHERE Email = %s", (new_finished_courses, user_email))
+            
+            # Commit changes to the database
+            connection.commit()
+            
+            return jsonify({
+                'success': 'Course marked as finished!',
+                'finished_courses': new_finished_courses
+            }), 200
+
+    except pymysql.MySQLError as e:
+        print(f"Database error: {str(e)}")
+        return jsonify({'error': 'Database operation failed'}), 500
+
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        return jsonify({'error': 'An unexpected error occurred'}), 500
+
+    finally:
+        # Ensure the connection is properly closed
+        if 'connection' in locals() and connection:
+            connection.close()
+
