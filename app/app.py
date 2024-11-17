@@ -4155,6 +4155,147 @@ def fetch_user_total_playlist_count():
 
 ###################################################################################
 ############################ Course Progress ######################################
+
+@app.route('/save_course_progress', methods=['GET', 'POST'])
+@login_required
+def save_course_progress():
+    # Verify user login status
+    if 'logged_in' not in session or not session['logged_in']:
+        return jsonify({'error': 'Unauthorized access'}), 403
+
+    # Get the user email from the session
+    user_email = session.get('user_email')
+    if not user_email:
+        return jsonify({'error': 'User email not found in session'}), 403
+
+    try:
+        # Database connection
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            if request.method == 'GET':
+                # Get playlist_id from query parameters
+                playlist_id = request.args.get('playlist_id')
+                if not playlist_id:
+                    return jsonify({'error': 'playlist_id is required'}), 400
+
+                # First check if the course is in finished_courses
+                cursor.execute("SELECT finished_courses, course_progress FROM student_signup WHERE Email = %s", (user_email,))
+                record = cursor.fetchone()
+                
+                if record:
+                    finished_courses = record['finished_courses'].split(',') if record['finished_courses'] else []
+                    
+                    # If course is finished, return special status
+                    if playlist_id in finished_courses:
+                        return jsonify({
+                            'status': 'completed',
+                            'message': 'Course already completed',
+                            'course_progress': None
+                        }), 200
+                    
+                    # If not finished, return current progress
+                    current_progress = record['course_progress'] if record['course_progress'] else None
+                    return jsonify({
+                        'status': 'in_progress',
+                        'course_progress': current_progress
+                    }), 200
+                
+                return jsonify({'error': 'User record not found'}), 404
+
+            elif request.method == 'POST':
+                # Collect data from the JSON request payload
+                data = request.json
+                playlist_id = data.get('playlist_id')
+                total_videos = data.get('total_videos')
+                current_video = data.get('video_no')
+
+                if not all([playlist_id, total_videos, current_video]):
+                    return jsonify({'error': 'playlist_id, total_videos, video_no are required fields'}), 400
+
+                # First check if course is already finished
+                cursor.execute("SELECT finished_courses, course_progress FROM student_signup WHERE Email = %s", (user_email,))
+                record = cursor.fetchone()
+
+                if not record:
+                    return jsonify({'error': 'User record not found'}), 404
+
+                finished_courses = set(record['finished_courses'].split(',')) if record['finished_courses'] and record['finished_courses'].strip() else set()
+
+                # If course is already finished, return early
+                if str(playlist_id) in finished_courses:
+                    return jsonify({
+                        'status': 'completed',
+                        'message': 'Course already completed',
+                        'data': {
+                            'course_progress': record['course_progress'],
+                            'finished_courses': record['finished_courses']
+                        }
+                    }), 200
+
+                # Initialize progress tracking
+                current_progress = record['course_progress'] if record['course_progress'] else ''
+                
+                # Convert the existing course progress data to a list of tuples
+                progress_list = []
+                if current_progress:
+                    progress_list = [
+                        tuple(map(int, item.strip('()').split(',')))
+                        for item in current_progress.split(';')
+                        if item.strip()
+                    ]
+
+                # Create new progress tuple
+                new_progress = (int(playlist_id), int(total_videos), int(current_video))
+
+                # Update progress list: remove old entry if exists, add new one
+                progress_list = [prog for prog in progress_list if prog[0] != new_progress[0]]
+                
+                # Check if course is finished
+                if int(current_video) == int(total_videos):
+                    # Add to finished courses
+                    finished_courses.add(str(playlist_id))
+                else:
+                    # Add to progress list only if not finished
+                    progress_list.append(new_progress)
+
+                # Convert progress list back to string format
+                new_progress_str = ';'.join(f"({','.join(map(str, prog))})" for prog in progress_list)
+                new_finished_courses = ','.join(sorted(finished_courses)) if finished_courses else ''
+
+                # Update the database
+                cursor.execute("""
+                    UPDATE student_signup
+                    SET course_progress = %s, finished_courses = %s
+                    WHERE Email = %s
+                """, (new_progress_str, new_finished_courses, user_email))
+
+                # Commit the transaction
+                connection.commit()
+
+                return jsonify({
+                    'success': 'Course progress updated successfully!',
+                    'status': 'completed' if int(current_video) == int(total_videos) else 'in_progress',
+                    'data': {
+                        'course_progress': new_progress_str,
+                        'finished_courses': new_finished_courses
+                    }
+                }), 200
+
+    except pymysql.MySQLError as e:
+        print(f"Database error: {str(e)}")
+        return jsonify({'error': 'Database operation failed'}), 500
+
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        return jsonify({'error': 'An unexpected error occurred'}), 500
+
+    finally:
+        # Ensure the connection is closed
+        if 'connection' in locals() and connection:
+            connection.close()
+
+####################### USELESS ##########################
+
 @app.route('/mark_course_finished', methods=['POST'])
 @login_required
 def mark_course_finished():
@@ -4222,3 +4363,6 @@ def mark_course_finished():
         # Ensure the connection is properly closed
         if 'connection' in locals() and connection:
             connection.close()
+
+
+####################### USELESS ##########################
