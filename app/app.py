@@ -4548,4 +4548,54 @@ def get_user_progress():
         if 'connection' in locals():
             connection.close()
 
+########### Fetching Users Total Finished Playlist Count  ###########
+  
+@app.route('/fetch_user_total_finished_playlist_count', methods=['GET'])
+@login_required
+def fetch_user_total_finished_playlist_count():
+    try:
+        # Ensure the user is logged in
+        if 'logged_in' not in session or not session['logged_in']:
+            return jsonify({'error': 'Unauthorized access'}), 403
+        
+        # Get the user email from the session
+        user_email = session.get('user_email')
+        if not user_email:
+            return jsonify({'error': 'User email not found in session'}), 403
+        
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # Get the finished_courses directly from student_signup
+            cursor.execute("""
+                SELECT finished_courses 
+                FROM student_signup 
+                WHERE Email = %s
+            """, (user_email,))
+            
+            result = cursor.fetchone()
+            
+            if not result:
+                return jsonify({'error': 'Student not found'}), 404
+            
+            # Calculate count from finished_courses
+            count = 0
+            if result['finished_courses']:
+                # Split the string and count non-empty items
+                finished_courses = [x for x in result['finished_courses'].split(',') if x]
+                count = len(finished_courses)
+            
+            return jsonify({
+                'total_playlist_count': count,
+                'status': 'success'
+            }), 200
+            
+    except Exception as e:
+        print(f"Error in fetch_user_total_finished_playlist_count: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+        
+    finally:
+        if 'connection' in locals():
+            connection.close()      
+
+
 
