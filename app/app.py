@@ -4461,3 +4461,91 @@ def fetch_users_finished_courses():
         if 'connection' in locals():
             connection.close()
 
+############### Track Progress Bar ################
+@app.route('/progress_bar', methods=['GET'])
+@login_required
+def get_user_progress():
+    try:
+        # Ensure user is logged in and has email in session
+        if 'logged_in' not in session or not session['logged_in'] or 'user_email' not in session:
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        user_email = session['user_email']
+        
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # Get user's playlist_id and finished_courses
+            cursor.execute("""
+                SELECT playlist_id, finished_courses 
+                FROM student_signup 
+                WHERE Email = %s
+            """, (user_email,))
+            
+            result = cursor.fetchone()
+            
+            # Initialize response
+            response = {
+                "total_courses": 0,
+                "completed_courses": 0,
+                "progress_percentage": 0,
+                "remaining_courses": 0
+            }
+            
+            # If no result or both columns are NULL, return 0 progress
+            if not result or (not result['playlist_id'] and not result['finished_courses']):
+                return jsonify(response), 200
+            
+            # Calculate total courses from playlist_id
+            total_courses = 0
+            if result['playlist_id']:
+                playlist_ids = [x for x in result['playlist_id'].split(',') if x]
+                total_courses = len(playlist_ids)
+            
+            # Calculate completed courses from finished_courses
+            completed_courses = 0
+            if result['finished_courses']:
+                finished_ids = [x for x in result['finished_courses'].split(',') if x]
+                completed_courses = len(finished_ids)
+            
+            # Calculate progress percentage
+            progress_percentage = 0
+            if total_courses > 0:
+                progress_percentage = (completed_courses / total_courses) * 100
+                progress_percentage = round(progress_percentage, 2)  # Round to 2 decimal places
+            
+            # Prepare response
+            response = {
+                "total_courses": total_courses,
+                "completed_courses": completed_courses,
+                "progress_percentage": progress_percentage,
+                "remaining_courses": total_courses - completed_courses,
+                "status": "on_track" if progress_percentage < 100 else "completed"
+            }
+            
+            # Update course_progress in database
+            try:
+                cursor.execute("""
+                    UPDATE student_signup 
+                    SET course_progress = %s 
+                    WHERE Email = %s
+                """, (progress_percentage, user_email))
+                connection.commit()
+            except Exception as e:
+                print("Error updating course progress:", e)
+                # Continue execution even if update fails
+                pass
+            
+            return jsonify(response), 200
+            
+    except Exception as e:
+        print("Error calculating progress:", e)
+        return jsonify({
+            "message": "Error calculating progress", 
+            "error": str(e)
+        }), 500
+        
+    finally:
+        if 'connection' in locals():
+            connection.close()
+
+
