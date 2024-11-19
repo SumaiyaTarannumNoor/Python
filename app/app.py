@@ -4828,3 +4828,157 @@ def fetch_user_total_finished_playlist_count():
 
 
 
+######### Individual Course Progress Tracking ########
+@app.route('/course_progress_tracking', methods=['GET'])
+@login_required
+def track_course_progress():
+    try:
+        if 'logged_in' not in session or not session['logged_in'] or 'user_email' not in session:
+            return jsonify({'error': 'Unauthorized access'}), 403
+        
+        user_email = session['user_email']
+        
+        connection = pymysql.connect(**db_config)
+        with connection.cursor() as cursor:
+            # Get user's course_progress and finished_courses
+            cursor.execute("""
+                SELECT course_progress, finished_courses, playlist_id 
+                FROM student_signup 
+                WHERE Email = %s
+            """, (user_email,))
+            
+            result = cursor.fetchone()
+            
+            if not result:
+                return jsonify({'error': 'User record not found'}), 404
+                
+            course_progress = result['course_progress']
+            finished_courses = result['finished_courses']
+            all_playlist_ids = result['playlist_id']
+            
+            # Initialize response structure
+            progress_data = {
+                'individual_progress': [],
+                'completed_courses': [],
+                'total_courses': [],
+                'summary': {
+                    'average_progress': 0,
+                    'courses_in_progress': 0,
+                    'courses_completed': 0
+                }
+            }
+            
+            # Process finished courses
+            finished_course_list = finished_courses.split(',') if finished_courses else []
+            progress_data['completed_courses'] = [int(course) for course in finished_course_list if course]
+            
+            # Process total courses
+            total_course_list = all_playlist_ids.split(',') if all_playlist_ids else []
+            progress_data['total_courses'] = [int(course) for course in total_course_list if course]
+            
+            # Process course progress data
+            if course_progress:
+                # Split the progress string into individual records
+                progress_entries = []
+                if ';' in course_progress:
+                    progress_entries = [
+                        entry.strip('()').split(',')
+                        for entry in course_progress.split(';')
+                        if entry.strip()
+                    ]
+                else:
+                    # Handle single entry case
+                    single_entry = course_progress.strip('()').split(',')
+                    if len(single_entry) == 3:
+                        progress_entries = [single_entry]
+                
+                # Calculate progress for each course
+                for entry in progress_entries:
+                    if len(entry) == 3:
+                        try:
+                            playlist_id = int(entry[0])
+                            total_videos = int(entry[1])
+                            current_video = int(entry[2])
+                            
+                            # Calculate completion percentage
+                            if total_videos > 0:
+                                percentage = (current_video / total_videos) * 100
+                                # If current_video equals total_videos, mark as 100%
+                                if current_video == total_videos:
+                                    percentage = 100
+                            else:
+                                percentage = 0
+                            
+                            # Determine status
+                            status = 'in_progress'
+                            if current_video == total_videos or playlist_id in progress_data['completed_courses']:
+                                status = 'completed'
+                            elif current_video == 0:
+                                status = 'not_started'
+                            
+                            course_data = {
+                                'playlist_id': playlist_id,
+                                'total_videos': total_videos,
+                                'current_video': current_video,
+                                'progress_percentage': round(percentage, 1),
+                                'remaining_videos': total_videos - current_video,
+                                'status': status
+                            }
+                            
+                            progress_data['individual_progress'].append(course_data)
+                            
+                            # Update completed courses if 100% progress
+                            if percentage == 100 and playlist_id not in progress_data['completed_courses']:
+                                progress_data['completed_courses'].append(playlist_id)
+                            
+                        except (ValueError, IndexError) as e:
+                            print(f"Error processing entry {entry}: {str(e)}")
+                            continue
+            
+            # Add any completed courses that aren't in progress data
+            for course_id in progress_data['completed_courses']:
+                if not any(p['playlist_id'] == course_id for p in progress_data['individual_progress']):
+                    progress_data['individual_progress'].append({
+                        'playlist_id': course_id,
+                        'total_videos': None,
+                        'current_video': None,
+                        'progress_percentage': 100,
+                        'remaining_videos': 0,
+                        'status': 'completed'
+                    })
+            
+            # Calculate summary statistics
+            if progress_data['individual_progress']:
+                total_percentage = sum(course['progress_percentage'] for course in progress_data['individual_progress'])
+                progress_data['summary'].update({
+                    'average_progress': round(total_percentage / len(progress_data['individual_progress']), 1),
+                    'courses_in_progress': len([c for c in progress_data['individual_progress'] if c['status'] == 'in_progress']),
+                    'courses_completed': len(progress_data['completed_courses'])
+                })
+            
+            # Store the calculated progress data
+            try:
+                progress_json = json.dumps(progress_data)
+                cursor.execute("""
+                    UPDATE student_signup 
+                    SET individual_course_progress = %s 
+                    WHERE Email = %s
+                """, (progress_json, user_email))
+                connection.commit()
+            except Exception as e:
+                print(f"Error updating individual course progress: {e}")
+            
+            return jsonify(progress_data), 200
+            
+    except Exception as e:
+        print(f"Error tracking course progress: {e}")
+        return jsonify({
+            'message': 'Error tracking course progress',
+            'error': str(e)
+        }), 500
+        
+    finally:
+        if 'connection' in locals():
+            connection.close()            
+
+
