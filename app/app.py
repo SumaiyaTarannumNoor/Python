@@ -4981,4 +4981,12 @@ def track_course_progress():
         if 'connection' in locals():
             connection.close()            
 
-
+@app.route('/check_session')
+def check_session():
+    logged_in = 'email' in session
+    print(f"Session contents: {session}")  # Debug print
+    print(f"Is logged in: {logged_in}")   # Debug print
+    return jsonify({
+        'loggedIn': logged_in,
+        'sessionData': dict(session)  # This helps us see what's in the session
+    })
