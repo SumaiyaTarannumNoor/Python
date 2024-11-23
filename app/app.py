@@ -4981,9 +4981,10 @@ def track_course_progress():
         if 'connection' in locals():
             connection.close()            
 
+#### Route For User Based Navbar ####
 @app.route('/check_session')
 def check_session():
-    logged_in = 'email' in session
+    logged_in = 'user_email' in session
     print(f"Session contents: {session}")  # Debug print
     print(f"Is logged in: {logged_in}")   # Debug print
     return jsonify({
