@@ -38,7 +38,7 @@ idna==3.7
 imageio==2.35.1
 imageio-ffmpeg==0.5.1
 itsdangerous==2.2.0
-Jinja2==3.1.4
+Jinja2==3.1.5
 markdown-it-py==3.0.0
 MarkupSafe==2.1.5
 mdurl==0.1.2
