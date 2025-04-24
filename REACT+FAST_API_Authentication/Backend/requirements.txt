@@ -91,7 +91,7 @@ python-dotenv==1.0.1
 python-engineio==4.9.1
 python-jose==3.4.0
 python-magic==0.4.27
-python-multipart==0.0.9
+python-multipart>=0.0.18
 python-socketio==5.11.3
 pytz==2024.1
 PyYAML==6.0.1
