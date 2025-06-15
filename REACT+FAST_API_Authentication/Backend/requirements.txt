@@ -95,7 +95,7 @@ python-multipart>=0.0.18
 python-socketio==5.11.3
 pytz==2024.1
 PyYAML==6.0.1
-requests==2.32.3
+requests>=2.32.4
 requests-oauthlib==1.1.0
 rich==13.7.1
 routers==0.10.1
