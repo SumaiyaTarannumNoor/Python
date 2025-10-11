@@ -3,7 +3,7 @@ def vertex_cover(graph):
     edges = list(graph.keys())
     while edges:
         u, v = edges.pop()
-        cover.add(u)
+        cover.add(v)
         edges = [(x, y) for (x, y) in edges if x not in cover and y not in cover]
     return cover
 
