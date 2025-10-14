@@ -167,3 +167,10 @@ avl_tree.insert(56)
 avl_tree.insert(66)
 
 print(f"Inorder Traversal: {avl_tree.inorder_traversal()}")
+
+
+# Time Complexity - O(log n)
+# Space Complexity - O(n)
+# Auxiliary Space Complexity - O(1)
+
+
