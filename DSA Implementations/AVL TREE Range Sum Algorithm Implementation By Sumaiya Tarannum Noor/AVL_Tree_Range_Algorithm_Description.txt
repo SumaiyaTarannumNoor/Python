@@ -1,0 +1,32 @@
+# Algorithm Logic for Efficient Range Sum in AVL Tree
+
+The goal is to efficiently compute the sum of all values within a dynamic range `[L, R]` in an AVL tree while avoiding missing any edge cases. The approach is as follows:
+
+## Root-first comparison
+Begin by comparing the root node’s key with the given range `[L, R]`. The root itself may lie inside the range, coincide with one of the bounds, or fall outside. Therefore, it is essential to evaluate the root first to ensure no potential values are skipped.
+
+## Include root if in range
+If the root key satisfies `L ≤ root.key ≤ R`, it is included in the sum and stored in the collection of range values.
+
+## Traverse the left subtree selectively
+- The left subtree is only explored if there is a possibility that its nodes contain values within the range.
+- Specifically, traverse the left subtree if `root.key > L`, since all keys in the left subtree are guaranteed to be smaller than the root key.
+- Continue this selective traversal until the smallest node `≥ L` is reached.
+
+## Traverse the right subtree selectively
+- Similarly, traverse the right subtree only if `root.key < R`, as the right subtree contains keys greater than the root.
+- Continue traversal until the largest node `≤ R` is reached.
+
+## Aggregate values and sum
+- Collect all node values encountered within `[L, R]` from both left and right subtrees.
+- Compute the total sum by adding the root (if in range) and all valid values from the traversed subtrees.
+
+## Corner case handling
+By always checking the root first and selectively traversing subtrees, the algorithm ensures that **no corner cases are missed**, such as when the root itself equals `L` or `R`, or when either boundary coincides with nodes deep in a subtree.
+
+This approach guarantees correctness while avoiding unnecessary traversal of nodes that cannot contribute to the range sum.
+
+
+
+### Raw
+If we insert a dynamic range [10, 36] and the tree root is 20, we first need to consider the root. Then, we check the left subtree to find all nodes n such that 10 ≤ n < 20. For the right subtree, if 20 < 36, we traverse it to find all nodes n such that n ≤ 36. In other words, we first compare with the root because the root itself may lie within the range. We check whether the root equals L, equals R, or lies within [L, R]. If the root is included in the range, we add it first. Then we traverse the left subtree up to nodes ≥ L, and the right subtree up to nodes ≤ R. Finally, we collect all these values and sum them. This ensures that no corner cases are missed.
