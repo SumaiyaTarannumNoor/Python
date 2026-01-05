@@ -1,0 +1,21 @@
+name: Repo Soft Pulse
+
+on:
+  schedule:
+    - cron: "11 2 * * *"
+    - cron: "37 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  pulse:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Soft pulse
+        run: |
+          curl -X POST https://sumaiyatn.pythonanywhere.com/repo-heartbeat \
+          -H "Content-Type: application/json" \
+          -d '{
+            "repo": "${{ github.event.repository.name }}",
+            "owner": "${{ github.repository_owner }}",
+            "event": "soft"
+          }'
