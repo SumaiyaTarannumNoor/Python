@@ -12,7 +12,7 @@ cffi==1.16.0
 charset-normalizer==3.3.2
 click==8.1.7
 colorama==0.4.6
-cryptography==42.0.8
+cryptography>=46.0.5
 decorator==4.4.2
 dnspython==2.6.1
 email_validator==2.2.0
@@ -84,5 +84,6 @@ Werkzeug==3.0.3
 wsproto==1.2.0
 zope.event==5.0
 zope.interface==7.0.3
+
 
 
