@@ -14,7 +14,7 @@ def sub(a: int, b: int) -> int:
 
 
 @mcp.tool()
-def multiply(a: float, b: float) -> float:
+def multiplication(a: float, b: float) -> float:
     """
     Multiplies Numbers
 
@@ -28,9 +28,8 @@ def multiply(a: float, b: float) -> float:
 
 @mcp.tool(
     name = "division",
-    description = "Divides two numbers", 
+    description = "Divides two numbers"
 )
-
 def divide(a: float, b: float) -> float:
     """
     Divides Numbers
