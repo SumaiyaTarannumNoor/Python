@@ -37,10 +37,10 @@ class ChatResponse(BaseModel):
 async def root():
     return {"message": "API is running..."}     
 
-@app.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
-    response_text = ai_platform.chat(request.prompt)
-    return ChatResponse(response=response_text)
+# @app.post("/chat", response_model=ChatResponse)
+# async def chat(request: ChatRequest):
+#     response_text = ai_platform.chat(request.prompt)
+#     return ChatResponse(response=response_text)
 
 @app.post("/chat", response_model = ChatResponse)
 async def chat(request: ChatRequest):
