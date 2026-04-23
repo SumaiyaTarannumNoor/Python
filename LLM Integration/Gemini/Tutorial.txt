@@ -1,0 +1,2 @@
+Video Tutorial - https://youtu.be/uDUfZyNXFX0?si=jY78Ed6A7jLxk0xg
+Git Repo - https://github.com/pixegami/fastapi-gemini-ai
